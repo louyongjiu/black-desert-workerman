@@ -24,9 +24,5 @@ coverage
 *.sln
 *.sw?
 
-# workerman
-/data/maptiles/*
-#/data/icons/*
-backup.bat
-deploy.bat
-preview.bat
+# Runtime data (maptiles, icons, languages, WASM) and project scripts
+# belong in version control; do not add ignore rules for them here.

@@ -128,9 +128,10 @@ test('separate multiplied model updates its curve, mean and range with each boun
   const { state } = harness
   assert.equal(harness.distribution().length, 2049)
   const initialMean = state.theoreticalMean
-  assert.ok(Math.abs(initialMean - 104.5) < 1e-10)
-  assert.ok(Math.abs(state.achievableRange.min - 27.648) < 1e-10)
-  assert.ok(Math.abs(state.achievableRange.max - 250.992) < 1e-10)
+  // The shipped preset uses [0.56, 1.66], [0.64, 1.23], [0.8, 1.23].
+  assert.ok(Math.abs(initialMean - 105.341775) < 1e-10)
+  assert.ok(Math.abs(state.achievableRange.min - 28.672) < 1e-10)
+  assert.ok(Math.abs(state.achievableRange.max - 251.1414) < 1e-10)
   assert.match(state.codeSnippet, /averageSize \* r1 \* r2 \* r3/)
   for (const [control, value] of Object.entries({ min1: 0.45, max1: 1.6,
     min2: 0.55, max2: 1.45, min3: 0.75, max3: 1.25 })) {

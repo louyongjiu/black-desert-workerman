@@ -10,18 +10,19 @@ import TownWorkers from '../components/TownWorkers.vue'
 import Plantzone from '../components/Plantzone.vue'
 import {formatFixed, randBetween, levelup} from '../util.js'
 import ModalDialog from '../components/ModalDialog.vue'
-import WorkerEdit from '../components/WorkerEdit.vue'
-import WorkerSendSelection from '../components/WorkerSendSelection.vue'
-import LodgingSelection from '../components/LodgingSelection.vue'
-import HousesSelection from '../components/HousesSelection.vue'
-import NodeMap from "../components/NodeMap.vue";
 import MapSelectedInfo from "../components/MapSelectedInfo.vue";
 import EmpireOverview from '../components/EmpireOverview.vue'
-import FloatingResourceEdit from '../components/FloatingResourceEdit.vue'
-import WorkerSelection from '../components/WorkerSelection.vue'
 import SearchBar from '../components/SearchBar.vue'
 import ItemIcon from '../components/lo/ItemIcon.vue'
-import { ref, nextTick } from "vue";
+import { ref, nextTick, defineAsyncComponent } from "vue";
+
+const WorkerEdit = defineAsyncComponent(() => import('../components/WorkerEdit.vue'))
+const WorkerSendSelection = defineAsyncComponent(() => import('../components/WorkerSendSelection.vue'))
+const LodgingSelection = defineAsyncComponent(() => import('../components/LodgingSelection.vue'))
+const HousesSelection = defineAsyncComponent(() => import('../components/HousesSelection.vue'))
+const NodeMap = defineAsyncComponent(() => import('../components/NodeMap.vue'))
+const FloatingResourceEdit = defineAsyncComponent(() => import('../components/FloatingResourceEdit.vue'))
+const WorkerSelection = defineAsyncComponent(() => import('../components/WorkerSelection.vue'))
 
 
 export default {
@@ -133,7 +134,7 @@ export default {
       this.highlightNodes = pzkList
       
       nextTick(() => {
-        this.$refs.nodeMap.updateLayers()
+        this.$refs.nodeMap?.updateLayers()
         if (pzkList.size > 0) {
           let x1 = 1e99
           let y1 = 1e99
@@ -145,7 +146,7 @@ export default {
             x2 = Math.max(x2, this.gameStore.nodes[pzk].pos.x)
             y2 = Math.max(y2, this.gameStore.nodes[pzk].pos.z)
           })
-          this.$refs.nodeMap.panToBbox(x1, x2, y1, y2)
+          this.$refs.nodeMap?.panToBbox(x1, x2, y1, y2)
         }
       })
       this.showSearchBar = false

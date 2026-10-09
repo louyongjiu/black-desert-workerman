@@ -3,8 +3,12 @@ import {useGameStore} from '../stores/game'
 import {Deck, OrthographicView, COORDINATE_SYSTEM} from '@deck.gl/core';
 import {BitmapLayer, GeoJsonLayer, IconLayer} from '@deck.gl/layers';
 import {TileLayer} from '@deck.gl/geo-layers';
+import { markRaw } from 'vue'
+import { mapLifecycle } from '../mapLifecycle.js'
+import { fetchJson } from '../dataLoading.mjs'
 
 export default {
+  mixins: [mapLifecycle],
   setup() {
     const gameStore = useGameStore()
     return { gameStore }
@@ -43,43 +47,48 @@ export default {
   },
 
   mounted() {
-    this.deck = this.initializeDeck()
+    this._regionData = new Map()
+    this.deck = markRaw(this.initializeDeck())
   },
 
   watch: {
     highlightedIcon(newVal) {
-      this.resourceLayer = this.makeResourceLayer()
-      this.originLayer = this.makeOriginLayer()
-      this.deck.setProps({
-        layers: [
-          this.tileLayer,
-          this.rgLayer,
-          this.rLayer,
-          this.resourceLayer,
-          this.originLayer,
-        ]
-      })
+      this.updateRegionLayers()
     },
     currentLayer(newVal) {
-      this.rgLayer = this.makeRgLayer()
-      this.rLayer = this.makeRLayer()
-      this.deck.setProps({
-        layers: [
-          this.tileLayer,
-          this.rgLayer,
-          this.rLayer,
-          this.resourceLayer,
-          this.originLayer,
-        ]
-      })
+      this.highlightedIcon = 0
+      this.updateRegionLayers()
     },
   },
 
   methods: {
+    regionData(key, url) {
+      if (!this._regionData.has(key)) {
+        this._regionData.set(key, fetchJson(url, { signal: this._mapController.signal }).catch(error => {
+          if (error.name === 'AbortError') return []
+          this._regionData.delete(key)
+          throw error
+        }))
+      }
+      return this._regionData.get(key)
+    },
+    currentRegionLayers() {
+      if (this.currentLayer === 'RG') {
+        this.rgLayer = markRaw(this.makeRgLayer())
+        this.resourceLayer = markRaw(this.makeResourceLayer())
+        return [this.tileLayer, this.rgLayer, this.resourceLayer]
+      }
+      this.rLayer = markRaw(this.makeRLayer())
+      this.originLayer = markRaw(this.makeOriginLayer())
+      return [this.tileLayer, this.rLayer, this.originLayer]
+    },
+    updateRegionLayers() {
+      this.deck?.setProps({ layers: this.currentRegionLayers() })
+    },
     makeResourceLayer() {
       return new IconLayer({
         id: 'ResourceLayer',
-        data: 'data/deck_rg_graphs.json',
+        data: this.regionData('resources', 'data/deck_rg_graphs.json'),
         getPosition: d => [d.graphx, d.graphz],
         getColor: d => [66, 66, 66, 255],  // r, g, b have no effect, only alpha does
         getIcon: function(d) {
@@ -109,7 +118,7 @@ export default {
     makeOriginLayer() {
       return new IconLayer({
         id: 'OriginLayer',
-        data: 'data/deck_r_origins.json',
+        data: this.regionData('origins', 'data/deck_r_origins.json'),
         getPosition: d => [d.x, d.z],
         getColor: d => [66, 66, 66, 255],  // r, g, b have no effect, only alpha does
         getIcon: function(d) {
@@ -140,7 +149,7 @@ export default {
     makeRgLayer() {
       return new GeoJsonLayer({
         id: 'RegionGroupLayer',
-        data: 'data/rg_latest.geojson',
+        data: this.regionData('RG', 'data/rg_latest.geojson'),
 
         stroked: false,  // default: true
         getLineWidth: 50,  
@@ -181,7 +190,7 @@ export default {
     makeRLayer() {
       return new GeoJsonLayer({
         id: 'RegionLayer',
-        data: 'data/r_latest.geojson',
+        data: this.regionData('R', 'data/r_latest.geojson'),
 
         stroked: false,  // default: true
         getLineWidth: 50,  
@@ -220,9 +229,9 @@ export default {
     },
 
     initializeDeck() {
-      this.tileLayer = new TileLayer({
+      this.tileLayer = markRaw(new TileLayer({
         id: 'TileLayer',
-        data: 'https://shrddr.github.io/maptiles/{z}/{x}_{y}.webp',
+        data: `${import.meta.env.BASE_URL}data/maptiles/{z}/{x}_{y}.webp`,
         minZoom: 0,
         maxZoom: 7,
         tileSize: 256 * 12800,
@@ -244,12 +253,7 @@ export default {
             bounds: [left, bottom, right, top]
           });
         }
-      })
-
-      this.resourceLayer = this.makeResourceLayer()
-      this.originLayer = this.makeOriginLayer()
-      this.rgLayer = this.makeRgLayer()
-      this.rLayer = this.makeRLayer()
+      }))
 
       const deckInstance = new Deck({
         canvas: 'deck-canvas',
@@ -257,13 +261,7 @@ export default {
 
         initialViewState: this.initialViewState,
 
-        layers: [
-          this.tileLayer,
-          this.rgLayer,
-          this.rLayer,
-          this.resourceLayer,
-          this.originLayer,
-        ],
+        layers: this.currentRegionLayers(),
 
         controller: {doubleClickZoom: false},
         getTooltip: ({object}) => {

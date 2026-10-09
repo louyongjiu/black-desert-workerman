@@ -10,6 +10,8 @@ import {TileLayer} from '@deck.gl/geo-layers';
 import Heap from 'heap';
 import {makeIconImg, formatFixed} from '../util.js'
 import { isNumber } from 'jstat-esm/lib/core/helpers';
+import { markRaw } from 'vue'
+import { mapLifecycle } from '../mapLifecycle.js'
 
 function lerp(from, to, t) {
   return from + (to - from) * t;
@@ -45,6 +47,7 @@ function lerp(from, to, t) {
 }*/
 
 export default {
+  mixins: [mapLifecycle],
   setup() {
     // this is not early enough
     const gameStore = useGameStore()
@@ -53,15 +56,7 @@ export default {
     const marketStore = useMarketStore()
     const mapStore = useMapStore()
 
-    userStore.$subscribe((mutation, state) => {
-      const start = Date.now()
-      localStorage.setItem('user', JSON.stringify(state))
-      console.log('userStore subscription took', Date.now()-start, 'ms')
-    })
 
-    mapStore.$subscribe((mutation, state) => {
-      localStorage.setItem('map', JSON.stringify(state))
-    })
 
     return { gameStore, userStore, routingStore, marketStore, mapStore }
   },
@@ -111,21 +106,12 @@ export default {
   },
 
   async mounted() {
-    function until(conditionFunction) {
-      const poll = resolve => {
-        if (conditionFunction()) resolve();
-        else setTimeout(_ => poll(resolve), 100);
-      }
-      return new Promise(poll);
+    try {
+      await this.loadMapData()
+    } catch (error) {
+      if (error.name !== 'AbortError') console.error('Node map load failed', error)
+      return
     }
-
-    console.log('NodeMap mounted, sleeping')
-    await until(_ => this.gameStore.ready == true && this.iconsCalc)
-    console.log('resuming')
-
-    this.iconData = await (await fetch(`data/deck_icons.json`)).json()
-    this.iconPositions = await (await fetch(`data/deck_icon_positions.json`)).json()
-    this.lineData = await (await fetch(`data/deck_links.json`)).json()
     
     if (this.panToPzk in this.gameStore.nodes) {
       console.log('panning to node', this.panToPzk)
@@ -136,7 +122,7 @@ export default {
     }
     this.initialViewState.target = [...this.mapStore.target]
     this.initialViewState.zoom = this.mapStore.zoom
-    this.deck = this.initializeDeck()
+    this.deck = markRaw(this.initializeDeck())
     this.updateDeck()
   },
 
@@ -441,8 +427,8 @@ export default {
     initializeDeck() {
       console.log('initializeDeck', this.initialViewState, this.mapStore.target)
 
-      this.tileLayer = new TileLayer({
-        data: 'https://shrddr.github.io/maptiles/{z}/{x}_{y}.webp',
+      this.tileLayer = markRaw(new TileLayer({
+        data: `${import.meta.env.BASE_URL}data/maptiles/{z}/{x}_{y}.webp`,
         minZoom: 0,
         maxZoom: 7,
         tileSize: 256 * 12800,
@@ -464,10 +450,10 @@ export default {
             bounds: [left, bottom, right, top]
           });
         }
-      })
-      this.lineLayer = this.makeLineLayer()
-      this.iconLayer = this.makeIconsLayer()
-      this.highlightedIconLayer = this.makeHighlightedIconsLayer()
+      }))
+      this.lineLayer = markRaw(this.makeLineLayer())
+      this.iconLayer = markRaw(this.makeIconsLayer())
+      this.highlightedIconLayer = markRaw(this.makeHighlightedIconsLayer())
       
       return new Deck({
         canvas: 'deck-canvas',
@@ -500,9 +486,9 @@ export default {
       if (!this.deck)
         return
       console.log('updateLayers')
-      this.lineLayer = this.makeLineLayer()
-      this.highlightedIconLayer = this.makeHighlightedIconsLayer()
-      this.iconLayer = this.makeIconsLayer()
+      this.lineLayer = markRaw(this.makeLineLayer())
+      this.highlightedIconLayer = markRaw(this.makeHighlightedIconsLayer())
+      this.iconLayer = markRaw(this.makeIconsLayer())
       this.deck.setProps({
         layers: [
           this.tileLayer,
@@ -517,9 +503,9 @@ export default {
       if (!this.deck)
         return
       console.log('updateDeck')
-      this.lineLayer = this.makeLineLayer()
-      this.highlightedIconLayer = this.makeHighlightedIconsLayer()
-      this.iconLayer = this.makeIconsLayer()
+      this.lineLayer = markRaw(this.makeLineLayer())
+      this.highlightedIconLayer = markRaw(this.makeHighlightedIconsLayer())
+      this.iconLayer = markRaw(this.makeIconsLayer())
       this.deck.setProps({
         layers: [
           this.tileLayer,

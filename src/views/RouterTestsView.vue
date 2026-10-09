@@ -3,10 +3,13 @@ import {Deck, OrthographicView} from '@deck.gl/core';
 import {BitmapLayer, LineLayer, IconLayer} from '@deck.gl/layers';
 import {TileLayer} from '@deck.gl/geo-layers';
 import { useGameStore } from '../stores/game'
+import { markRaw } from 'vue'
+import { mapLifecycle } from '../mapLifecycle.js'
 
 
 
 export default {
+  mixins: [mapLifecycle],
   setup() {
     const gameStore = useGameStore()
     return { gameStore }
@@ -53,17 +56,12 @@ export default {
   },
 
   async mounted() {
-    function until(conditionFunction) {
-      const poll = resolve => {
-        if (conditionFunction()) resolve();
-        else setTimeout(_ => poll(resolve), 100);
-      }
-      return new Promise(poll);
+    try {
+      await this.loadMapData()
+    } catch (error) {
+      if (error.name !== 'AbortError') console.error('Router test map load failed', error)
+      return
     }
-
-    console.log('mounted, sleeping')
-    await until(_ => this.gameStore.ready == true)
-    console.log('resuming')
 
     const gameStore = useGameStore()
     this.all_origins = gameStore.townsWithLodging
@@ -72,11 +70,7 @@ export default {
       this.all_destinations.push(Number(nk))
     }
 
-    this.iconData = await (await fetch(`data/deck_icons.json`)).json()
-    this.iconPositions = await (await fetch(`data/deck_icon_positions.json`)).json()
-    this.lineData = await (await fetch(`data/deck_links.json`)).json()
-
-    this.deck = this.initializeDeck()
+    this.deck = markRaw(this.initializeDeck())
     this.updateDeck()
   },
 
@@ -196,7 +190,7 @@ export default {
       const start = Date.now()
 
       while (1) {
-        const badNodes = new Set()
+        let badNodes = new Set()
         const testcase = {
           'label': `real${this.real_results.length}`,
           'pairs': [],
@@ -209,6 +203,7 @@ export default {
             badNodes = new Set()
             testcase.pairs = []
             i = -1
+            continue
           }
           const source = goodTowns[Math.floor(Math.random() * goodTowns.length)]
           // random walk around town
@@ -297,8 +292,8 @@ export default {
     initializeDeck() {
       console.log('initializeDeck')
 
-      this.tileLayer = new TileLayer({
-        data: 'https://shrddr.github.io/maptiles/{z}/{x}_{y}.webp',
+      this.tileLayer = markRaw(new TileLayer({
+        data: `${import.meta.env.BASE_URL}data/maptiles/{z}/{x}_{y}.webp`,
         minZoom: 0,
         maxZoom: 7,
         tileSize: 256 * 12800,
@@ -320,9 +315,9 @@ export default {
             bounds: [left, bottom, right, top]
           });
         }
-      })
-      this.lineLayer = this.makeLineLayer()
-      this.iconLayer = this.makeIconsLayer()
+      }))
+      this.lineLayer = markRaw(this.makeLineLayer())
+      this.iconLayer = markRaw(this.makeIconsLayer())
       
       return new Deck({
         canvas: 'deck-canvas',
@@ -351,8 +346,8 @@ export default {
       if (!this.deck)
         return
       console.log('updateDeck')
-      this.lineLayer = this.makeLineLayer()
-      this.iconLayer = this.makeIconsLayer()
+      this.lineLayer = markRaw(this.makeLineLayer())
+      this.iconLayer = markRaw(this.makeIconsLayer())
       this.deck.setProps({
         layers: [
           this.tileLayer,

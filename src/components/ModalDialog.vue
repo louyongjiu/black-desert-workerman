@@ -1,7 +1,7 @@
 <template>
   <div v-show="show" @click.stop="this.$emit('update:show', false)" class="dialog">
     <div @click.stop class="dialog_content">
-      <slot></slot>
+      <slot v-if="hasOpened"></slot>
     </div>
   </div>
 </template>
@@ -9,6 +9,15 @@
 <script>
 export default {
   name: 'modalDialog',
+  data: () => ({ hasOpened: false }),
+  watch: {
+    show: {
+      immediate: true,
+      handler(show) {
+        if (show) this.hasOpened = true
+      },
+    },
+  },
   props: {
     show: {
       type: Boolean,
@@ -44,4 +53,3 @@ export default {
   max-height: 100%;
 }
 </style>
-

@@ -18,15 +18,7 @@ export default {
     const marketStore = useMarketStore()
     const mapStore = useMapStore()
 
-    mapStore.$subscribe((mutation, state) => {
-      localStorage.setItem('map', JSON.stringify(state))
-    })
 
-    userStore.$subscribe((mutation, state) => {
-      const start = Date.now()
-      localStorage.setItem('user', JSON.stringify(state))
-      console.log('userStore subscription took', Date.now()-start, 'ms')
-    })
 
     return { marketStore, userStore, routingStore, gameStore, mapStore }
   },

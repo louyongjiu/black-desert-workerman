@@ -5,6 +5,11 @@ import {useRoutingStore} from './routing'
 import Heap from 'heap';
 import {extractNumbers, binarySearch} from '../util.js';
 import init, { WasmNodeRouter } from '../pkg/noderouter.js';
+import { markRaw } from 'vue'
+import { GAME_DATASETS, fetchJson, loadDatasets } from '../dataLoading.mjs'
+import { buildDistanceIndex, medianWorkerStats } from '../gameLookups.mjs'
+
+const languageRequests = new WeakMap()
 
 export const useGameStore = defineStore({
   id: "game",
@@ -14,6 +19,10 @@ export const useGameStore = defineStore({
     pzdSet: null,
     plantzoneStatic: {},
     itemKeys: [],
+    itemInfo: {},
+    tk2pzk: {},
+    pzk2tk: {},
+    tk2hk: {},
     nodes: {},
     distPerTown: {},
     distToTown: {},
@@ -36,6 +45,11 @@ export const useGameStore = defineStore({
     _tnk2tk: {},
     craftInputs: {},
     craftOutputs: {},
+    craftInfo: {},
+    ls_lookup: {},
+    origins: [],
+    destinations: [],
+    giantSpecies: new Set(),
     wasmNodesLinks: {},
     wasmBaseTowns: new Set(),
     wasmRouter: null,
@@ -197,33 +211,53 @@ export const useGameStore = defineStore({
       return t
     },
 
+    async loadLanguage(language) {
+      if (!['en', 'jp', 'ko', 'ru', 'tw'].includes(language)) {
+        throw new Error(`Unsupported language: ${language}`)
+      }
+      if (this.loc[language]) return this.loc[language]
+      let requests = languageRequests.get(this)
+      if (!requests) languageRequests.set(this, requests = new Map())
+      if (!requests.has(language)) {
+        const request = fetchJson(`data/loc/${language}.json`).then(data => {
+          this.loc[language] = markRaw(data)
+          return data
+        }).finally(() => requests.delete(language))
+        requests.set(language, request)
+      }
+      return requests.get(language)
+    },
+
     async fetchData() {
       const start = Date.now()
+      this.ready = false
+      const [datasets] = await Promise.all([
+        loadDatasets(GAME_DATASETS),
+        this.loadLanguage(useUserStore().selectedLang),
+        init(),
+      ])
+      // Static game data is replaced as a whole, never deeply observed.
+      this.$patch(state => {
+        for (const [key, data] of Object.entries(datasets)) state[key] = markRaw(data)
+      })
 
       // observed
-      this.plantzoneDrops = await (await fetch(`data/manual/plantzone_drops.json`)).json()
       this.pzdSet = new Set(Object.keys(this.plantzoneDrops).map(x=>+x))
       //console.log('pzdSet', this.pzdSet)
 
       // from client
-      this.plantzoneStatic = await (await fetch(`data/plantzone.json`)).json()
       console.log('plantzoneStatic', this.plantzoneStatic[1879])
 
       // info for sorting
-      this.itemInfo = await (await fetch(`data/item_info.json`)).json()
 
       // from drops (could have calculated in here)
-      this.itemKeys = await (await fetch(`data/manual/plantzone_uniques.json`)).json()
       // this could be faster than loading an additional file but includes the Worker Seal
       //this.itemKeys = Object.keys(this.itemInfo).map((s) => parseInt(s)).sort((a,b)=>a-b)
 
       // for node parent name (todo: localization)
-      this.nodes = await (await fetch(`data/exploration.json`)).json()
 
       // for later custom-worker-based profit
-      this.tk2pzk = await (await fetch(`data/distances_tk2pzk.json`)).json()
       // for distance lookup starting with nearest towns
-      this.pzk2tk = await (await fetch(`data/distances_pzk2tk.json`)).json()
 
       // for workshop distances (outdated)
       //this.hk2nk = await (await fetch(`data/hk2nk.json`)).json()
@@ -233,9 +267,7 @@ export const useGameStore = defineStore({
       // best worker for a workshop
       //this.hk2tk = await (await fetch(`data/distances_hk2tk.json`)).json()
       // best workshop for a worker
-      this.tk2hk = await (await fetch(`data/distances_tk2hk.json`)).json()
 
-      this.regionInfo = await (await fetch(`data/regioninfo.json`)).json()
       Object.values(this.regionInfo).forEach(({ key, waypoint }) => {
         if (waypoint !== 0) {
           this._tk2tnk[key] = waypoint
@@ -282,7 +314,6 @@ export const useGameStore = defineStore({
         2001,2057
       ]
       // town(1+2) again, but tk-based (TODO: unify)
-      this.lodgingPerTown = await (await fetch(`data/lodging_per_town.json`)).json()
 
       // town(3a) has a Config button for adjusting autorented houses via "Personal items" input
       // vel, olv, hei, gli, cal, kep
@@ -325,9 +356,7 @@ export const useGameStore = defineStore({
       ]
 
       // town(4) can be extracted from here if needed
-      this.houseInfo = await (await fetch(`data/houseinfo.json`)).json()
 
-      this.vendorPrices = await (await fetch(`data/manual/vendor_prices.json`)).json()      
 
       this.industries = {
         "unk": "unknown",
@@ -362,14 +391,9 @@ export const useGameStore = defineStore({
       }
       this.regionGroups = regionGroups
 
-      this.skillData = await (await fetch(`data/manual/skills.json`)).json()
-      this.workerStatic = await (await fetch(`data/worker_static.json`)).json()
-      this.loc = await (await fetch(`data/loc.json`)).json()
       
       // these are used in dijkstra; deck links are loaded in NodeMap
-      this.links = await (await fetch(`data/links.json`)).json()
 
-      this.ls_lookup = await (await fetch(`data/all_lodging_storage.json`)).json()
       this.ls_lodgings_sorted = {}
       for (const [tk, lodging_dict] of Object.entries(this.ls_lookup)) {
         this.ls_lodgings_sorted[tk] = Object.keys(lodging_dict).sort((a, b) => a - b)
@@ -388,9 +412,6 @@ export const useGameStore = defineStore({
         8: '🐢',  // lotml
       }
 
-      this.craftInputs = await (await fetch(`data/house_craft_inputs.json`)).json()
-      this.craftOutputs = await (await fetch(`data/house_craft_outputs.json`)).json()
-      this.craftInfo = await (await fetch(`data/house_craft_info.json`)).json()
 
       this.craftInputItemKeySet = new Set()
       for (const inputs of Object.values(this.craftInputs)) {
@@ -400,8 +421,6 @@ export const useGameStore = defineStore({
       }
       //console.log('craftInputItemKeySet', this.craftInputItemKeySet)
 
-      this.origins = await (await fetch(`data/origins.json`)).json()
-      this.destinations = await (await fetch(`data/destinations.json`)).json()
 
       await this.initWasmRouter()
       
@@ -430,9 +449,9 @@ export const useGameStore = defineStore({
       }
       //console.log('wasm init data', nodesLinks)
       await init()
-      this.wasmRouter = new WasmNodeRouter(nodesLinks)
+      this.wasmRouter = markRaw(new WasmNodeRouter(nodesLinks))
       //await init()
-      this.wasmRouterWithOption = new WasmNodeRouter(nodesLinks)
+      this.wasmRouterWithOption = markRaw(new WasmNodeRouter(nodesLinks))
       this.wasmRouterWithOption.setOption("max_removal_attempts", "350")
       this.wasmRouterWithOption.setOption("max_frontier_rings", "4")
       this.wasmRouterWithOption.setOption("ring_combo_cutoff", "2")
@@ -889,25 +908,7 @@ export const useGameStore = defineStore({
     },
 
     makeMedianChar(charkey) {
-      const ret = { level: 40 }
-      const stat = this.workerStatic[charkey]
-      let pa_wspd = stat.wspd
-      let pa_mspdBonus = 0
-      let pa_luck = stat.luck
-      for (let i = 2; i <= 40; i++) {
-        pa_wspd += (stat.wspd_lo + stat.wspd_hi) / 2
-        pa_mspdBonus += (stat.mspd_lo + stat.mspd_hi) / 2
-        pa_luck += (stat.luck_lo + stat.luck_hi) / 2
-      }
-
-      let pa_mspd = stat.mspd * (1 + pa_mspdBonus / 1E6)
-
-      ret.wspd = Math.round(pa_wspd / 1E6 * 100) / 100
-      ret.mspd = Math.round(pa_mspd) / 100
-      ret.luck = Math.round(pa_luck / 1E4 * 100) / 100
-      ret.charkey = charkey
-      ret.isGiant = this.isGiant(charkey)
-      return ret
+      return this.medianWorkers[charkey]
     },
 
     medianGoblin(tnk) {
@@ -1020,15 +1021,13 @@ export const useGameStore = defineStore({
     },
     itemName(ik) {
       if (!this.ready) return ik
-      const userStore = useUserStore()
-      if (ik in this.loc[userStore.selectedLang].item)
-        return this.loc[userStore.selectedLang].item[ik]
+      if (ik in this.uloc.item)
+        return this.uloc.item[ik]
       return ik
     },
     nodeName(nk) {
       if (!this.ready) return nk
-      const userStore = useUserStore()
-      return this.loc[userStore.selectedLang].node[nk]
+      return this.uloc.node[nk]
     },
     parentNodeName(pzk) {
       if (this.ready && pzk in this.plantzoneStatic) {
@@ -1047,17 +1046,10 @@ export const useGameStore = defineStore({
         return ""
     },
     pzDistance(tnk, pzk) {
-      if (pzk in this.pzk2tk) {
-        const tkDistancesList = this.pzk2tk[pzk]
-        const tk = this._tnk2tk[tnk]
-        for (let i = 0; i < tkDistancesList.length; i++)
-          if (tkDistancesList[i][0] == tk)
-            return tkDistancesList[i][1]
-      }
-      else {
+      if (!(pzk in this.pzk2tk)) {
         throw new Error(`no distances for pzk ${pzk}`)
       }
-      return NaN
+      return this.pzDistancesByTown[pzk].get(Number(this._tnk2tk[tnk])) ?? NaN
     },
     houseDistance(tnk, hk) {
       if (!this.ready) return 0
@@ -1314,10 +1306,18 @@ export const useGameStore = defineStore({
   },
 
   getters: {
+    pzDistancesByTown() {
+      return buildDistanceIndex(this.pzk2tk)
+    },
+    medianWorkers() {
+      return Object.fromEntries(Object.entries(this.workerStatic).map(([charkey, stat]) => [
+        charkey, medianWorkerStats(stat, Number(charkey), this.giantSpecies.has(stat.species)),
+      ]))
+    },
     uloc() {
       const userStore = useUserStore()
       if (this.ready)
-        return this.loc[userStore.selectedLang]
+        return this.loc[userStore.selectedLang] || Object.values(this.loc)[0]
       return {
         town: {},  // 5 (tk) = velia
         housetype: {}, 

@@ -4,6 +4,7 @@ import {useGameStore} from './stores/game'
 import {useUserStore} from './stores/user'
 import {useMarketStore} from './stores/market'
 import {useMapStore} from './stores/map'
+import {persistStore} from './persistence.mjs'
 </script>
 
 <script>
@@ -16,6 +17,13 @@ export default {
     const mapStore = useMapStore()
     const p = localStorage.getItem('map')
     mapStore.$patch(JSON.parse(p))
+
+    this._persistence = [
+      persistStore(userStore, 'user', localStorage),
+      persistStore(mapStore, 'map', localStorage),
+    ]
+    this._flushPersistence = () => this._persistence.forEach(p => p.flush())
+    window.addEventListener('pagehide', this._flushPersistence)
 
     const gameStore = useGameStore()
     await gameStore.fetchData()  // is needed by Market to access craftables
@@ -31,7 +39,16 @@ export default {
       // todo: handle failure
       marketStore.fetchData()
     }
-  }
+  },
+  watch: {
+    '$pinia.state.value.user.selectedLang'(language) {
+      useGameStore().loadLanguage(language).catch(error => console.error('Language load failed', error))
+    },
+  },
+  beforeUnmount() {
+    window.removeEventListener('pagehide', this._flushPersistence)
+    this._persistence.forEach(p => p.stop())
+  },
 }
 </script>
 

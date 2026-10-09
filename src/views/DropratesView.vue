@@ -26,6 +26,8 @@ import {
 import VChart, { THEME_KEY } from "vue-echarts";
 import { provide } from 'vue'
 import { computed } from 'vue'
+import { markRaw } from 'vue'
+import { selectObservation } from '../droprateSelection.mjs'
 
 use([
   CanvasRenderer,
@@ -89,9 +91,13 @@ export default {
   },
 
   mounted() {
-    this.darkModeQuery.addEventListener("change", () => {
+    this._onThemeChange = () => {
       this.darkMode = this.darkModeQuery.matches
-    })
+    }
+    this.darkModeQuery.addEventListener('change', this._onThemeChange)
+  },
+  beforeUnmount() {
+    this.darkModeQuery.removeEventListener('change', this._onThemeChange)
   },
 
   watch: {
@@ -149,16 +155,6 @@ export default {
       }
 
       const dataByLuck = this.weightedDataset
-      let luckyLenHi = 0
-      let luckyLenLo = 0
-      for (let [luck, data] of Object.entries(dataByLuck)) {
-        for (let chance of data.weights) {
-          if (chance > this.stats.generalConfidence/100)
-            luckyLenLo++
-          if (chance > 1 - this.stats.generalConfidence/100)
-            luckyLenHi++
-        }
-      }
 
       let dataFlatSorted = []
       let weightsFlat = []
@@ -332,14 +328,9 @@ export default {
 
     async fetchObservations() {
       const start = Date.now()
-      this.alldata = await (await fetch(`data/manual/yields_observed_202606.json`)).json()
+      this.alldata = markRaw(await (await fetch(`data/manual/yields_observed_202606.json`)).json())
       
-      const pz = this.dropratesStore.selected_pzk
-      this.dropratesStore.selected_pzk = (pz && this.alldata[pz]) ? pz : Object.keys(this.alldata)[0]
-      const i = this.dropratesStore.selected_ik
-      this.dropratesStore.selected_ik = (i && this.alldata[pz][i]) ? i : Object.keys(this.alldata[pz])[0]
-      const s = this.dropratesStore.selected_specie
-      this.dropratesStore.selected_specie = (s && this.alldata[pz][i][s]) ? s : Object.keys(this.alldata[pz][i])[0]
+      this.dropratesStore.$patch(selectObservation(this.alldata, this.dropratesStore))
       
       console.log('fetchObservations took', Date.now()-start, 'ms',
         this.dropratesStore.selected_pzk,

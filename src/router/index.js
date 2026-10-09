@@ -1,17 +1,16 @@
 import { createRouter, createWebHistory } from "vue-router";
-import HomeView from "../views/HomeView.vue";
-import PlantzonesView from "../views/PlantzonesView.vue";
-import LodgingView from "../views/LodgingView.vue";
-import ResourcesView from "../views/ResourcesView.vue";
-import SettingsView from "../views/SettingsView.vue";
-import AboutView from "../views/AboutView.vue";
-import OtherTownsView from "../views/OtherTownsView.vue";
-import WorkshopsView from "../views/WorkshopsView.vue";
-import HouseCraft from "../views/HouseCraft.vue";
-import DropratesView from "../views/DropratesView.vue";
-import FishsizeView from "../views/FishsizeView.vue";
-import RouterTestsView from "../views/RouterTestsView.vue";
-import RegionMapView from "../views/RegionMapView.vue";
+const HomeView = () => import("../views/HomeView.vue")
+const PlantzonesView = () => import("../views/PlantzonesView.vue")
+const LodgingView = () => import("../views/LodgingView.vue")
+const ResourcesView = () => import("../views/ResourcesView.vue")
+const SettingsView = () => import("../views/SettingsView.vue")
+const OtherTownsView = () => import("../views/OtherTownsView.vue")
+const WorkshopsView = () => import("../views/WorkshopsView.vue")
+const HouseCraft = () => import("../views/HouseCraft.vue")
+const DropratesView = () => import("../views/DropratesView.vue")
+const FishsizeView = () => import("../views/FishsizeView.vue")
+const RouterTestsView = () => import("../views/RouterTestsView.vue")
+const RegionMapView = () => import("../views/RegionMapView.vue")
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

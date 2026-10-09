@@ -13,15 +13,7 @@ export default {
     const marketStore = useMarketStore()
     const mapStore = useMapStore()
 
-    mapStore.$subscribe((mutation, state) => {
-      localStorage.setItem('map', JSON.stringify(state))
-    })
 
-    userStore.$subscribe((mutation, state) => {
-      const start = Date.now()
-      localStorage.setItem('user', JSON.stringify(state))
-      console.log('userStore subscription took', Date.now()-start, 'ms')
-    })
 
     return { marketStore, userStore, gameStore, mapStore }
   },
@@ -77,6 +69,17 @@ export default {
 
   computed: {
 
+    nearestTownCandidates() {
+      if (!this.gameStore.ready) return {}
+      return Object.fromEntries(Object.keys(this.gameStore.plantzoneDrops).map(key => {
+        const pzk = Number(key)
+        const townLimit = this.mediahNodes.has(pzk) ? 3 : 2
+        const towns = this.gameStore.dijkstraNearestTowns(pzk, townLimit, undefined, true, false, true)
+        towns.sort((a, b) => a[1] - b[1])
+        return [pzk, towns]
+      }))
+    },
+
     allPlantzonesNearestCpTownProfit() {
       const start = Date.now()
       const ret = []
@@ -84,9 +87,7 @@ export default {
         const pzk = pzd.key
 
         // some mediah nodes need deeper search to prevent suggesting Iliya
-        const townLimit = this.mediahNodes.has(pzk) ? 3 : 2
-        let towns = this.gameStore.dijkstraNearestTowns(pzk, townLimit, undefined, true, false, true)
-        towns.sort((a,b) => a[1]-b[1])
+        const towns = this.nearestTownCandidates[pzk]
         //if (pzk == 1046) console.log(`allPlantzonesNearestCpTownProfit pzk=${pzk} towns:`, towns)
         
         let workData = {}

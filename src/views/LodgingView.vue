@@ -9,11 +9,6 @@ export default {
     const userStore = useUserStore()
     const marketStore = useMarketStore()
 
-    userStore.$subscribe((mutation, state) => {
-      const start = Date.now()
-      localStorage.setItem('user', JSON.stringify(state))
-      console.log('userStore subscription took', Date.now()-start, 'ms')
-    })
 
     return { gameStore, userStore, marketStore }
   },

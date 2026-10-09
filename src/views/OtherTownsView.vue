@@ -25,11 +25,21 @@ export default {
   },
 
   computed: {
+    nearestTownCandidates() {
+      if (!this.gameStore.ready) return {}
+      return Object.fromEntries(Object.keys(this.gameStore.plantzoneDrops).map(key => {
+        const pzk = Number(key)
+        return [pzk, this.gameStore.dijkstraNearestTowns(pzk, 3, undefined, true, false, true)]
+      }))
+    },
     plantzonesNearestCpTownsProfits150() {
       const start = Date.now()
       let ret = {}
       for (const pzk of Object.keys(this.gameStore.plantzones)) {
-        ret[pzk] = this.gameStore.plantzoneNearestCpTownsProfits150(pzk, 3)
+        ret[pzk] = this.nearestTownCandidates[pzk].map(([tnk, cp]) => {
+          const profit = this.gameStore.profitPzTownStats(Number(pzk), tnk, 150, 10, 10, false)
+          return { ...profit, tnk, cp, dailyPerCp: profit.priceDaily / cp }
+        }).sort((a, b) => b.dailyPerCp - a.dailyPerCp)
       }
       console.log('cpt: plantzonesNearestCpTownsProfits took', Date.now()-start, 'ms')
       return ret

@@ -119,9 +119,13 @@ export default {
   },
 
   mounted() {
-    this.darkModeQuery.addEventListener("change", () => {
+    this._onThemeChange = () => {
       this.darkMode = this.darkModeQuery.matches
-    })
+    }
+    this.darkModeQuery.addEventListener('change', this._onThemeChange)
+  },
+  beforeUnmount() {
+    this.darkModeQuery.removeEventListener('change', this._onThemeChange)
   },
 
   watch: {
