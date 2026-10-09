@@ -1,9 +1,11 @@
+import { resourceUrl } from './resourceUrls.mjs'
+
 export function makeIconSrc(ik) {
   //return 'https://bdocodex.com/items/new_icon/03_etc/07_productmaterial/'+`${id}`.padStart(8, '0')+'.png'
   // doesnt work, sometimes /items/new_icon/03_etc/04_dropitem/00044035.png
 
   //return 'https://cdn.bdolytics.com/images/items/'+`${id}`.padStart(8, '0')+'.webp'
-  return `data/icons/item/${ik}.webp`
+  return resourceUrl(`data/icons/item/${ik}.webp`)
 }
 
 export function makeIconImg(ik) {

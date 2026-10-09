@@ -7,6 +7,7 @@ import FishVariableRollMultModel from '../components/droprateModels/FishVariable
 import FishSeparateMultipliedModel from '../components/droprateModels/FishSeparateMultipliedModel.vue'
 import TopFishSizesChart from '../components/TopFishSizesChart.vue'
 import { leaderboardAnnouncements } from '../fishLeaderboard.mjs'
+import { loadDatasets } from '../dataLoading.mjs'
 
 import { jStat } from 'jstat-esm';
 
@@ -381,9 +382,13 @@ export default {
 
     async fetchObservations() {
       const start = Date.now()
-      this.alldata = await (await fetch(`data/manual/catches_by_fish.json`)).json()
-      this.top_sizes = await (await fetch(`data/manual/sightings_top_sizes.json`)).json()
-      const ency = await (await fetch(`data/encyclopedia.json`)).json()
+      const { catches, topSizes, encyclopedia: ency } = await loadDatasets({
+        catches: 'data/manual/catches_by_fish.json',
+        topSizes: 'data/manual/sightings_top_sizes.json',
+        encyclopedia: 'data/encyclopedia.json',
+      })
+      this.alldata = catches
+      this.top_sizes = topSizes
 
       for (const [ek, info] of Object.entries(ency)) {
         const ik = info.itemkey

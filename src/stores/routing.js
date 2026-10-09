@@ -45,7 +45,7 @@ export const useRoutingStore = defineStore({
  
     routing(state) {
       const userStore = useUserStore()
-      return userStore.wasmRouting ? state.routingWasm : state.routingOld
+      return userStore.wasmRouting && useGameStore().wasmRouter ? state.routingWasm : state.routingOld
     },
 
     routingWasm(state) {

@@ -190,6 +190,9 @@ export default {
               <option>tw</option>
             </select>
           </div>
+          <div>
+            <label><input type="checkbox" v-model="userStore.mapSaveData"> Map data saver (lower image detail)</label>
+          </div>
         </div>
 
 

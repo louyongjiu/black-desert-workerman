@@ -1,12 +1,13 @@
 <script>
 import {useUserStore} from '../../stores/user'
 import {useGameStore} from '../../stores/game'
+import { resourceUrl } from '../../resourceUrls.mjs'
 
 export default {
   setup() {
     const userStore = useUserStore()
     const gameStore = useGameStore()
-    return { userStore, gameStore }
+    return { userStore, gameStore, resourceUrl }
   },
 
   props: {
@@ -26,7 +27,7 @@ export default {
 
 <template>
   <a :href="userStore.externalItemUrl + ik">
-    <img :src="`data/icons/item/${ik}.webp`" class="iconitem" :data-key="ik" />
+    <img :src="resourceUrl(`data/icons/item/${ik}.webp`)" class="iconitem" :data-key="ik" loading="lazy" decoding="async" />
     <template v-if="with_name && gameStore.ready">
       {{ gameStore.uloc.item[ik] }}
     </template>

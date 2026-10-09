@@ -12,6 +12,7 @@ import {makeIconImg, formatFixed} from '../util.js'
 import { isNumber } from 'jstat-esm/lib/core/helpers';
 import { markRaw } from 'vue'
 import { mapLifecycle } from '../mapLifecycle.js'
+import { resourceUrl } from '../resourceUrls.mjs'
 
 function lerp(from, to, t) {
   return from + (to - from) * t;
@@ -348,7 +349,7 @@ export default {
         getColor: d => [66, 66, 66, d.hidden ? 0 : 255],  // r, g, b have no effect, only alpha does
         getIcon: function(d) {
           return {
-            url: 'data/icons/node/' + (d.isHighlighted ? 'highlighted/' : '') + (d.taken ? '' : 'gray/') + `${d.kind}.png`,
+            url: resourceUrl('data/icons/node/' + (d.isHighlighted ? 'highlighted/' : '') + (d.taken ? '' : 'gray/') + `${d.kind}.png`),
             width: 256,
             height: 256,
             anchorX: 128,
@@ -384,7 +385,7 @@ export default {
         getColor: d => [66, 66, 66, d.hidden ? 0 : 255],
         getIcon: function(d) {
           return {
-            url: 'data/icons/node/' + (d.isHighlighted ? 'highlighted/' : '') + (d.taken ? '' : 'gray/') + `${d.kind}.png`,
+            url: resourceUrl('data/icons/node/' + (d.isHighlighted ? 'highlighted/' : '') + (d.taken ? '' : 'gray/') + `${d.kind}.png`),
             width: 256,
             height: 256,
             anchorX: 128,
@@ -428,9 +429,9 @@ export default {
       console.log('initializeDeck', this.initialViewState, this.mapStore.target)
 
       this.tileLayer = markRaw(new TileLayer({
-        data: `${import.meta.env.BASE_URL}data/maptiles/{z}/{x}_{y}.webp`,
+        data: resourceUrl('data/maptiles/{z}/{x}_{y}.webp'),
         minZoom: 0,
-        maxZoom: 7,
+        maxZoom: this.mapTileMaxZoom,
         tileSize: 256 * 12800,
         zoomOffset: 14,
         extent: [

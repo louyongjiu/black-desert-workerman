@@ -1,0 +1,21 @@
+{
+  "name": "noderouter",
+  "type": "module",
+  "description": "Primal Dual Approximations for Node Weighted Steiner Forest",
+  "version": "0.4.0",
+  "license": "UNLICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Thell/bdo-noderouter"
+  },
+  "files": [
+    "noderouter_bg.wasm",
+    "noderouter.js",
+    "noderouter.d.ts"
+  ],
+  "main": "noderouter.js",
+  "types": "noderouter.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

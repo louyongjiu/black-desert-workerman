@@ -28,6 +28,7 @@ import { provide } from 'vue'
 import { computed } from 'vue'
 import { markRaw } from 'vue'
 import { selectObservation } from '../droprateSelection.mjs'
+import { fetchJson } from '../dataLoading.mjs'
 
 use([
   CanvasRenderer,
@@ -328,7 +329,7 @@ export default {
 
     async fetchObservations() {
       const start = Date.now()
-      this.alldata = markRaw(await (await fetch(`data/manual/yields_observed_202606.json`)).json())
+      this.alldata = markRaw(await fetchJson('data/manual/yields_observed_202606.json'))
       
       this.dropratesStore.$patch(selectObservation(this.alldata, this.dropratesStore))
       

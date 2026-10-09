@@ -1,6 +1,7 @@
 <script setup>
 import QnaItem from "../components/lo/QnaItem.vue";
 import LinkToNode from "../components/lo/LinkToNode.vue";
+import { resourceUrl } from '../resourceUrls.mjs'
 </script>
 
 <template>
@@ -126,7 +127,7 @@ import LinkToNode from "../components/lo/LinkToNode.vue";
               No matter how I change the order of jobs, I still can't achieve the optimal routing I have in mind.
             </template>
             Cases like these<br/>
-            <img src="/data/images/steiner.png"><br/>
+            <img :src="resourceUrl('data/images/steiner.png')" loading="lazy" decoding="async"><br/>
             can't be routed optimally by old router, you'll get either B←A→C, A→B→C or A→C→B all costing 4 CP.<br/>
             To get both B and C with 3 CP you need to mark S as <strong class="notranslate">zero-cost (invested for droprate)</strong>.
           </QnaItem>
@@ -152,12 +153,12 @@ import LinkToNode from "../components/lo/LinkToNode.vue";
         <ul>
           <li>
             <details><summary>build the distribution of non-giant yields and their chances (need at least a rough estimate of both <i>n</i> and <i>p</i>)</summary>
-              <img src="/data/images/yields_gob.webp">
+              <img :src="resourceUrl('data/images/yields_gob.webp')" loading="lazy" decoding="async">
             </details>
           </li>
           <li>
             <details><summary>build the distribution of giant yields by keeping the same observations, but increase each integer yield 68.4% rounded down</summary>
-              <img src="/data/images/yields_gia.webp">
+              <img :src="resourceUrl('data/images/yields_gia.webp')" loading="lazy" decoding="async">
             </details>
           </li>
           <li>do a weighted sum back into average yield per cycle specifically for giants, which turns out less than 1.684<i>np</i>, but how much less depends on <i>n</i> and <i>p</i></li>
@@ -227,7 +228,7 @@ import LinkToNode from "../components/lo/LinkToNode.vue";
           <li>warning: if the totals in top right corner show ? after the import, you probably exceeded the F2P town limits for lodging/storage. look for towns marked red in <strong class="notranslate">All towns/workers</strong> list and adjust their <strong class="notranslate">config > P2W</strong> numbers</li>
           <li>note: the script doesn't really fetch <i>current</i> jobs, but the jobs associated with ingame "restart job" button of each worker.</li>
           <ul>
-            <li>even if the worker is stopped but has "restart job" <img src="/data\images\restart.png" class="icon"> and "clear restart" <img src="/data\images\clear_restart.png" class="icon"> buttons ingame active, his job is cached.</li>
+            <li>even if the worker is stopped but has "restart job" <img :src="resourceUrl('data/images/restart.png')" class="icon" loading="lazy"> and "clear restart" <img :src="resourceUrl('data/images/clear_restart.png')" class="icon" loading="lazy"> buttons ingame active, his job is cached.</li>
             <li>you can have two ingame workers with same cached job (but only one actually working). there is zero protection against that in workerman. don't leave dangling jobs - use "clear restart" ingame button.</li>
             <li>even after firing/selling the ingame worker, his job remains cached.</li>
             <li>the only way to remove cached jobs of fired workers seems to be: delete the cache file while the game is running and wait for it to be recreated (during load screen).</li>
@@ -242,7 +243,7 @@ import LinkToNode from "../components/lo/LinkToNode.vue";
           <ul>
             <li>
               <details><summary>RegionGroup borders can be somewhat seen on ingame map > Resource view, though some people say they can't (probably depends on graphics settings).</summary>
-                <img src="/data\images\regiongroup.png">
+                <img :src="resourceUrl('data/images/regiongroup.png')" loading="lazy" decoding="async">
               </details>
             </li>
           </ul>

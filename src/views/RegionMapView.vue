@@ -6,6 +6,7 @@ import {TileLayer} from '@deck.gl/geo-layers';
 import { markRaw } from 'vue'
 import { mapLifecycle } from '../mapLifecycle.js'
 import { fetchJson } from '../dataLoading.mjs'
+import { resourceUrl } from '../resourceUrls.mjs'
 
 export default {
   mixins: [mapLifecycle],
@@ -93,7 +94,7 @@ export default {
         getColor: d => [66, 66, 66, 255],  // r, g, b have no effect, only alpha does
         getIcon: function(d) {
           return {
-            url: 'data/icons/target_percent.png',
+            url: resourceUrl('data/icons/target_percent.png'),
             width: 128,
             height: 128,
             anchorX: 64,
@@ -123,7 +124,7 @@ export default {
         getColor: d => [66, 66, 66, 255],  // r, g, b have no effect, only alpha does
         getIcon: function(d) {
           return {
-            url: 'data/icons/target_orig.png',
+            url: resourceUrl('data/icons/target_orig.png'),
             width: 128,
             height: 128,
             anchorX: 64,
@@ -231,9 +232,9 @@ export default {
     initializeDeck() {
       this.tileLayer = markRaw(new TileLayer({
         id: 'TileLayer',
-        data: `${import.meta.env.BASE_URL}data/maptiles/{z}/{x}_{y}.webp`,
+        data: resourceUrl('data/maptiles/{z}/{x}_{y}.webp'),
         minZoom: 0,
-        maxZoom: 7,
+        maxZoom: this.mapTileMaxZoom,
         tileSize: 256 * 12800,
         zoomOffset: 14,
         extent: [

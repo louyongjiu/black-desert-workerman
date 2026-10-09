@@ -4,17 +4,26 @@ import {useUserStore} from './user'
 import {useRoutingStore} from './routing'
 import Heap from 'heap';
 import {extractNumbers, binarySearch} from '../util.js';
-import init, { WasmNodeRouter } from '../pkg/noderouter.js';
 import { markRaw } from 'vue'
-import { GAME_DATASETS, fetchJson, loadDatasets } from '../dataLoading.mjs'
+import { fetchJson, loadGameDatasets } from '../dataLoading.mjs'
 import { buildDistanceIndex, medianWorkerStats } from '../gameLookups.mjs'
 
 const languageRequests = new WeakMap()
+const coreRequests = new WeakMap()
+const plannerRequests = new WeakMap()
+const wasmRequests = new WeakMap()
+const referenceRequests = new WeakMap()
+// Pinia can wrap each action in a different proxy. Its state remains stable.
+const requestOwner = store => store.$state || store
 
 export const useGameStore = defineStore({
   id: "game",
   state: () => ({
     ready: false,
+    plannerReady: false,
+    wasmLoading: false,
+    wasmError: '',
+    dataError: '',
     plantzoneDrops: {},
     pzdSet: null,
     plantzoneStatic: {},
@@ -53,7 +62,6 @@ export const useGameStore = defineStore({
     wasmNodesLinks: {},
     wasmBaseTowns: new Set(),
     wasmRouter: null,
-    wasmRouterWithOption: null,
   }),
   
   actions: {
@@ -216,8 +224,9 @@ export const useGameStore = defineStore({
         throw new Error(`Unsupported language: ${language}`)
       }
       if (this.loc[language]) return this.loc[language]
-      let requests = languageRequests.get(this)
-      if (!requests) languageRequests.set(this, requests = new Map())
+      const owner = requestOwner(this)
+      let requests = languageRequests.get(owner)
+      if (!requests) languageRequests.set(owner, requests = new Map())
       if (!requests.has(language)) {
         const request = fetchJson(`data/loc/${language}.json`).then(data => {
           this.loc[language] = markRaw(data)
@@ -228,13 +237,53 @@ export const useGameStore = defineStore({
       return requests.get(language)
     },
 
-    async fetchData() {
+    fetchData() {
+      if (this.ready) return Promise.resolve()
+      const owner = requestOwner(this)
+      if (!coreRequests.has(owner)) {
+        const request = this.loadCoreData().finally(() => coreRequests.delete(owner))
+        coreRequests.set(owner, request)
+      }
+      return coreRequests.get(owner)
+    },
+
+    async loadReferenceData() {
+      const owner = requestOwner(this)
+      if (!referenceRequests.has(owner)) {
+        const request = Promise.all([
+          Object.keys(this.plantzoneStatic).length ? this.plantzoneStatic : fetchJson('data/plantzone.json'),
+          this.loadLanguage(useUserStore().selectedLang),
+        ]).then(([nodes]) => { this.plantzoneStatic = markRaw(nodes) })
+          .finally(() => referenceRequests.delete(owner))
+        referenceRequests.set(owner, request)
+      }
+      return referenceRequests.get(owner)
+    },
+
+    fetchPlannerData() {
+      if (this.plannerReady) return Promise.resolve()
+      const owner = requestOwner(this)
+      if (!plannerRequests.has(owner)) {
+        const request = Promise.all([loadGameDatasets('planner'), this.fetchData()]).then(([datasets]) => {
+          this.$patch(state => {
+            for (const [key, data] of Object.entries(datasets)) state[key] = markRaw(data)
+          })
+          this.ls_lodgings_sorted = Object.fromEntries(Object.entries(this.ls_lookup).map(([tk, lodging]) =>
+            [tk, Object.keys(lodging).sort((a, b) => a - b)],
+          ))
+          this.plannerReady = true
+        }).finally(() => plannerRequests.delete(owner))
+        plannerRequests.set(owner, request)
+      }
+      return plannerRequests.get(owner)
+    },
+
+    async loadCoreData() {
       const start = Date.now()
       this.ready = false
       const [datasets] = await Promise.all([
-        loadDatasets(GAME_DATASETS),
+        loadGameDatasets('core'),
         this.loadLanguage(useUserStore().selectedLang),
-        init(),
       ])
       // Static game data is replaced as a whole, never deeply observed.
       this.$patch(state => {
@@ -394,11 +443,6 @@ export const useGameStore = defineStore({
       
       // these are used in dijkstra; deck links are loaded in NodeMap
 
-      this.ls_lodgings_sorted = {}
-      for (const [tk, lodging_dict] of Object.entries(this.ls_lookup)) {
-        this.ls_lodgings_sorted[tk] = Object.keys(lodging_dict).sort((a, b) => a - b)
-      }
-
       this.giantSpecies = new Set([2, 4, 8])
       this.speciesIcons = {
         0: '👺',
@@ -422,14 +466,33 @@ export const useGameStore = defineStore({
       //console.log('craftInputItemKeySet', this.craftInputItemKeySet)
 
 
-      await this.initWasmRouter()
-      
       this.ready = true
 
       console.log('fetchGame took', Date.now()-start, 'ms')
     },
 
-    async initWasmRouter() {
+    initWasmRouter() {
+      if (this.wasmRouter) return Promise.resolve()
+      const owner = requestOwner(this)
+      if (!wasmRequests.has(owner)) {
+        this.wasmLoading = true
+        this.wasmError = ''
+        const request = this.loadWasmRouter().catch(error => {
+          this.wasmError = 'Unable to load the route planner. Please try again.'
+          throw error
+        }).finally(() => {
+          this.wasmLoading = false
+          wasmRequests.delete(owner)
+        })
+        wasmRequests.set(owner, request)
+      }
+      return wasmRequests.get(owner)
+    },
+
+    async loadWasmRouter() {
+      const [{ default: init, WasmNodeRouter }] = await Promise.all([
+        import('../pkg/noderouter.js'), this.fetchData(),
+      ])
       this.wasmBaseTowns = new Set()
 
       //const nodesLinks = await (await fetch(`data/nodes_links.json`)).json()
@@ -450,11 +513,6 @@ export const useGameStore = defineStore({
       //console.log('wasm init data', nodesLinks)
       await init()
       this.wasmRouter = markRaw(new WasmNodeRouter(nodesLinks))
-      //await init()
-      this.wasmRouterWithOption = markRaw(new WasmNodeRouter(nodesLinks))
-      this.wasmRouterWithOption.setOption("max_removal_attempts", "350")
-      this.wasmRouterWithOption.setOption("max_frontier_rings", "4")
-      this.wasmRouterWithOption.setOption("ring_combo_cutoff", "2")
     },
 
     isGiant(charkey) {
@@ -1020,17 +1078,15 @@ export const useGameStore = defineStore({
       return !(this.isLodgingTown(nk)) && !(this.isPlantzone(nk))
     },
     itemName(ik) {
-      if (!this.ready) return ik
       if (ik in this.uloc.item)
         return this.uloc.item[ik]
       return ik
     },
     nodeName(nk) {
-      if (!this.ready) return nk
-      return this.uloc.node[nk]
+      return this.uloc.node[nk] ?? nk
     },
     parentNodeName(pzk) {
-      if (this.ready && pzk in this.plantzoneStatic) {
+      if (pzk in this.plantzoneStatic) {
         const parentKey = this.plantzoneStatic[pzk].parent
         return this.nodeName(parentKey)
       }
@@ -1038,7 +1094,7 @@ export const useGameStore = defineStore({
         return pzk
     },
     plantzoneName(pzk) {
-      if (this.ready && pzk in this.plantzoneStatic) {
+      if (pzk in this.plantzoneStatic) {
         const nodeKey = this.plantzoneStatic[pzk].node.key
         return this.parentNodeName(pzk) + ' ' + this.nodeName(nodeKey)
       }
@@ -1316,7 +1372,7 @@ export const useGameStore = defineStore({
     },
     uloc() {
       const userStore = useUserStore()
-      if (this.ready)
+      if (Object.keys(this.loc).length)
         return this.loc[userStore.selectedLang] || Object.values(this.loc)[0]
       return {
         town: {},  // 5 (tk) = velia

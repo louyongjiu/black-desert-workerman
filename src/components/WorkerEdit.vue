@@ -5,6 +5,7 @@ import {useGameStore} from '../stores/game'
 import {formatFixed, randBetween, levelup} from '../util.js'
 import FloatingResourceEdit from './FloatingResourceEdit.vue'
 import WorkerJobDescription from '../components/WorkerJobDescription.vue'
+import { resourceUrl } from '../resourceUrls.mjs'
 
 export default {
   setup() {
@@ -12,7 +13,7 @@ export default {
     const routingStore = useRoutingStore()
     const gameStore = useGameStore()
 
-    return { gameStore, userStore, routingStore }
+    return { gameStore, userStore, routingStore, resourceUrl }
   },
 
   components: {
@@ -554,7 +555,7 @@ export default {
                 {{ gameStore.uloc.skill[sk] + " / " + gameStore.uloc.skilldesc[sk] }}
               </option>
             </select> 
-            <img v-if="prerelease_skillicon" :src="`data/icons/skill/${workerEditing.skills[n-1]}.png`" width="22" height="22"/>
+            <img v-if="prerelease_skillicon" :src="resourceUrl(`data/icons/skill/${workerEditing.skills[n-1]}.png`)" width="22" height="22" loading="lazy"/>
           </td>
         </tr>
       </table>

@@ -43,9 +43,17 @@ npm run preview
 npm run preview -- --host 127.0.0.1 --port 5191
 ```
 
-构建脚本会生成语言片段、编译前端、清理过期的哈希资源，并将 `data/` 复制到 `dist/data/`，包括本地地图瓦片和图标。
+构建脚本会生成语言片段、编译前端、清理过期资源，并将运行所需的资源发布到 `dist/data/<内容哈希>/`。JSON 在发布时去除空白，游戏数据合并为基础包和规划包；地图瓦片、图标及说明图片使用稳定的目录内容哈希。历史观测文件和完整语言源文件保留在源码仓库。
 
 发布时使用完整的 `dist/` 目录。当前访问前缀在 `vite.config.js` 中设为 `/workerman/`；页面路由使用 History 模式，托管服务需将应用路径下未匹配的页面请求回退到入口 `index.html`，同时保留静态资源的正常访问。
+
+仓库包含 `vercel.json`，指定构建命令、输出目录、`/workerman/` 的静态资源映射和页面回退。带内容哈希的资源使用一年浏览器缓存；资源内容变化后 URL 自动更新。Vercel 按浏览器支持自动提供 Gzip 或 Brotli 压缩。
+
+Settings 中的 **Map data saver (lower image detail)** 可降低地图图片精度，减少放大地图时的下载量。默认保留完整精度。
+
+如果已有独立静态资源 CDN，可设置构建环境变量 `VITE_ASSET_BASE_URL`，例如 `https://assets.example.com/workerman/`，并将完整的 `dist/data/` 同步到该地址下的 `data/` 目录。CDN 需要允许网页域名的 CORS 请求，并保留 JSON、GeoJSON 和图片的正确 Content-Type。JavaScript、CSS 和 WASM 继续通过 Vercel 加载。
+
+分包范围、缓存更新方式和本地测量见 [静态资源优化说明](docs/static-resources.md)。
 
 ## 目录说明
 
@@ -95,4 +103,4 @@ npm test
 ## 上游项目
 
 - 前端基于 [shrddr/workermanjs](https://github.com/shrddr/workermanjs)。
-- WASM 节点路由参见 [Thell/bdo-noderouter](https://github.com/Thell/bdo-noderouter)。
+- WASM 节点路由使用 [Thell/bdo-noderouter v0.4.0](https://github.com/Thell/bdo-noderouter/releases/tag/v0.4.0) 官方发布包，版本来源及校验值见 [src/pkg/README.md](src/pkg/README.md)。

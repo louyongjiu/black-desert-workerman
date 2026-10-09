@@ -1,5 +1,6 @@
 import { markRaw, watch } from 'vue'
 import { loadDatasets } from './dataLoading.mjs'
+import { useUserStore } from './stores/user'
 
 function waitForGame(gameStore, signal) {
   if (signal.aborted) return Promise.reject(new DOMException('Map unmounted', 'AbortError'))
@@ -20,6 +21,17 @@ function waitForGame(gameStore, signal) {
 }
 
 export const mapLifecycle = {
+  computed: {
+    mapTileMaxZoom() { return useUserStore().mapSaveData ? 6 : 7 },
+  },
+  watch: {
+    mapTileMaxZoom(maxZoom) {
+      if (!this.tileLayer || !this.deck) return
+      this.tileLayer = markRaw(this.tileLayer.clone({ maxZoom }))
+      if (this.updateRegionLayers) this.updateRegionLayers()
+      else this.updateDeck()
+    },
+  },
   created() {
     this._mapController = markRaw(new AbortController())
   },

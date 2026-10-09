@@ -2,6 +2,7 @@
 import {useUserStore} from '../stores/user'
 import {useGameStore} from '../stores/game'
 import ItemIcon from '../components/lo/ItemIcon.vue'
+import { fetchJson } from '../dataLoading.mjs'
 
 export default {
   setup() {
@@ -42,8 +43,9 @@ export default {
 
   methods: {
     async fetchData() {
-      this.houseCrafts = await (await fetch(`data/houseinforeceipe.json`)).json()
-      this.houses = await (await fetch(`data/houseinfo.json`)).json()
+      this.houseCrafts = await fetchJson('data/houseinforeceipe.json')
+      // This view adds CPfull; keep the shared static house data immutable.
+      this.houses = structuredClone(this.gameStore.houseInfo)
       const _towns = new Set([-1])
       const _usages = new Set([-1])
       for (const [hk, info] of Object.entries(this.houses)) {

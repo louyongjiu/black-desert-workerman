@@ -8,6 +8,7 @@ import {BitmapLayer, LineLayer, IconLayer} from '@deck.gl/layers';
 import {TileLayer} from '@deck.gl/geo-layers';
 import Heap from 'heap';
 import {makeIconImg, formatFixed} from '../util.js'
+import { resourceUrl } from '../resourceUrls.mjs'
 
 
 export default {
@@ -55,7 +56,7 @@ export default {
       console.log('initializeDeck', this.initialViewState)
 
       this.tileLayer = new TileLayer({
-        data: 'data/maptiles/{z}/{x}_{y}.webp',
+        data: resourceUrl('data/maptiles/{z}/{x}_{y}.webp'),
         minZoom: 0,
         maxZoom: 7,
         tileSize: 256 * 12800,

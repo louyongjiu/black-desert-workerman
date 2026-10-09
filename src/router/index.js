@@ -1,4 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { useUserStore } from '../stores/user'
+import { useGameStore } from '../stores/game'
+import { useMarketStore } from '../stores/market'
+import { loadRouteData } from '../routeData.mjs'
 const HomeView = () => import("../views/HomeView.vue")
 const PlantzonesView = () => import("../views/PlantzonesView.vue")
 const LodgingView = () => import("../views/LodgingView.vue")
@@ -78,5 +82,17 @@ const router = createRouter({
     },
   ],
 });
+
+router.beforeResolve(async to => {
+  const game = useGameStore()
+  game.dataError = ''
+  try {
+    await loadRouteData(to.path, useUserStore(), game, useMarketStore())
+  } catch (error) {
+    game.dataError = 'Unable to load page data. Check your connection and try again.'
+    throw error
+  }
+})
+router.onError(error => console.error('Page load failed', error))
 
 export default router;

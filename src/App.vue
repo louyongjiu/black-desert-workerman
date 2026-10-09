@@ -2,21 +2,17 @@
 import { RouterLink, RouterView } from "vue-router";
 import {useGameStore} from './stores/game'
 import {useUserStore} from './stores/user'
-import {useMarketStore} from './stores/market'
 import {useMapStore} from './stores/map'
 import {persistStore} from './persistence.mjs'
+const gameStore = useGameStore()
+function reloadPage() { window.location.reload() }
 </script>
 
 <script>
 export default {
-  async beforeCreate() {
+  beforeCreate() {
     const userStore = useUserStore()
-    const u = localStorage.getItem('user')
-    userStore.migrate(u)
-
     const mapStore = useMapStore()
-    const p = localStorage.getItem('map')
-    mapStore.$patch(JSON.parse(p))
 
     this._persistence = [
       persistStore(userStore, 'user', localStorage),
@@ -25,24 +21,16 @@ export default {
     this._flushPersistence = () => this._persistence.forEach(p => p.flush())
     window.addEventListener('pagehide', this._flushPersistence)
 
-    const gameStore = useGameStore()
-    await gameStore.fetchData()  // is needed by Market to access craftables
-
-    const marketStore = useMarketStore()
-    const m = localStorage.getItem('market')
-    if (m) {
-      // always load local first in case api dies
-      marketStore.$patch(JSON.parse(m))
-    }
-    const hour = 3600 * 1000
-    if (marketStore.apiDatetime + hour < Date.now()) {
-      // todo: handle failure
-      marketStore.fetchData()
-    }
   },
   watch: {
     '$pinia.state.value.user.selectedLang'(language) {
       useGameStore().loadLanguage(language).catch(error => console.error('Language load failed', error))
+    },
+    '$pinia.state.value.user.wasmRouting'(enabled) {
+      if (enabled) useGameStore().initWasmRouter().catch(error => {
+        console.error('Route planner load failed', error)
+        useUserStore().wasmRouting = false
+      })
     },
   },
   beforeUnmount() {
@@ -65,6 +53,10 @@ export default {
     </div>
   </header>
 
+  <p v-if="gameStore.dataError" role="alert">
+    {{ gameStore.dataError }}
+    <button @click="reloadPage">Retry</button>
+  </p>
   <RouterView />
 </template>
 

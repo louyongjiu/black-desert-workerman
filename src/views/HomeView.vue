@@ -613,8 +613,10 @@ export default {
             </p>
           </details>
 
-          <input type="checkbox" id="wr_cb" v-model="userStore.wasmRouting">
+          <input type="checkbox" id="wr_cb" v-model="userStore.wasmRouting" :disabled="gameStore.wasmLoading">
             <label for="wr_cb"> wasm routing</label><br/>
+          <span v-if="gameStore.wasmLoading">Loading route planner…</span>
+          <span v-if="gameStore.wasmError" role="alert">{{ gameStore.wasmError }}</span>
           <!--<input type="checkbox" v-model="userStore.wasm.tryMoreFrontierRings">
           tryMoreFrontierRings<br/>
           <input 

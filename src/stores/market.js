@@ -2,6 +2,7 @@ import {defineStore} from "pinia";
 import {useGameStore} from './game'
 import {useUserStore} from './user'
 import { formatFixed } from "../util";
+import { fetchJson } from '../dataLoading.mjs'
 
 export const useMarketStore = defineStore({
   id: "market",
@@ -67,7 +68,7 @@ export const useMarketStore = defineStore({
       })
 
       // openable sacks
-      this.calculatedPrices = await (await fetch(`data/manual/calculated_prices.json`)).json()
+      this.calculatedPrices = await fetchJson('data/manual/calculated_prices.json')
 
       // Vendor-priced and locally calculated items do not need a market API price.
       const requiredMarketItems = [...uset].filter(itemId =>

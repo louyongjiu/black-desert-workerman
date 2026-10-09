@@ -88,7 +88,7 @@ export default {
     formatFixed,
 
     async fetchData() {
-      this.houses = await (await fetch(`data/houseinfo.json`)).json()
+      this.houses = structuredClone(this.gameStore.houseInfo)
       const _towns = new Set([-1])
       const _usages = new Set([-1])
       for (const [hk, info] of Object.entries(this.houses)) {
