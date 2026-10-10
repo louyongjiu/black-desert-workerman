@@ -45,11 +45,15 @@ npm run preview -- --host 127.0.0.1 --port 5191
 
 构建脚本会生成语言片段、编译前端、清理过期资源，并将运行所需的资源发布到 `dist/data/<内容哈希>/`。JSON 在发布时去除空白，游戏数据合并为基础包和规划包；地图瓦片、图标及说明图片使用稳定的目录内容哈希。历史观测文件和完整语言源文件保留在源码仓库。
 
+地图瓦片在生产构建时由 Sharp 生成压缩候选：最大尺寸 192×192、WebP 质量 60、编码 effort 6。每张图片仅在候选文件严格更小时采用压缩版，否则发布原始字节。`data/maptiles/` 中的原始图片保持原样，文件名、地理范围和 `tileSize` 保持原值，节点图标与连接线仍由独立图层绘制。开发服务使用原图；通过 `npm run build` 和 `npm run preview` 查看生产压缩效果。
+
+首次构建会处理全部瓦片并输出进度和体积统计；后续构建复用 `.cache/maptiles/` 中按原图内容、压缩参数和编码器版本生成的缓存。缓存不纳入版本控制。Sharp 为构建依赖，要求 Node.js 20.9 及以上，推荐继续使用 Node.js 22。
+
 发布时使用完整的 `dist/` 目录。当前访问前缀在 `vite.config.js` 中设为 `/workerman/`；页面路由使用 History 模式，托管服务需将应用路径下未匹配的页面请求回退到入口 `index.html`，同时保留静态资源的正常访问。
 
 仓库包含 `vercel.json`，指定构建命令、输出目录、`/workerman/` 的静态资源映射和页面回退。带内容哈希的资源使用一年浏览器缓存；资源内容变化后 URL 自动更新。Vercel 按浏览器支持自动提供 Gzip 或 Brotli 压缩。
 
-Settings 中的 **Map data saver (lower image detail)** 可降低地图图片精度，减少放大地图时的下载量。默认保留完整精度。
+Settings 中的 **Map data saver (lower image detail)** 可限制地图最高瓦片层级，减少放大地图时的下载量。默认加载全部层级；生产底图采用上述均衡压缩。
 
 如果已有独立静态资源 CDN，可设置构建环境变量 `VITE_ASSET_BASE_URL`，例如 `https://assets.example.com/workerman/`，并将完整的 `dist/data/` 同步到该地址下的 `data/` 目录。CDN 需要允许网页域名的 CORS 请求，并保留 JSON、GeoJSON 和图片的正确 Content-Type。JavaScript、CSS 和 WASM 继续通过 Vercel 加载。
 

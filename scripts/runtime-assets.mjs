@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { DATASET_GROUPS } from '../src/dataLoading.mjs'
+import { createTileCompressor } from './tile-compression.mjs'
 
 export const RUNTIME_FILES = [
   'data/plantzone.json',
@@ -32,15 +33,16 @@ async function walk(workspace, directory) {
   return files.flat().sort()
 }
 
-async function batches(entries, fn) {
-  for (let offset = 0; offset < entries.length; offset += 32) {
-    await Promise.all(entries.slice(offset, offset + 32).map(fn))
+async function batches(entries, fn, limit = 32) {
+  for (let offset = 0; offset < entries.length; offset += limit) {
+    await Promise.all(entries.slice(offset, offset + limit).map(fn))
   }
 }
 
 export async function createRuntimeAssetPlan(workspace, options = {}) {
   const manifest = {}
   const assets = []
+  let tileStats
   const addJson = (relative, value) => {
     const contents = Buffer.from(JSON.stringify(value))
     const output = `data/${digest(contents)}/${relative.slice(5)}`
@@ -59,17 +61,31 @@ export async function createRuntimeAssetPlan(workspace, options = {}) {
   for (const directory of options.directories ?? directories) {
     const files = (await walk(workspace, directory)).filter(file => file !== 'data/maptiles/whole.webp')
     const hashed = new Map()
+    const isTile = file => /^data\/maptiles\/\d+\/-?\d+_-?\d+\.webp$/.test(file)
+    const compressor = directory === 'data/maptiles/' ? createTileCompressor({
+      cacheDirectory: path.join(workspace, '.cache', 'maptiles'),
+      settings: options.tileCompression,
+    }) : undefined
+    const totalTiles = compressor ? files.filter(isTile).length : 0
     await batches(files, async file => {
-      const contents = await readFile(path.join(workspace, file))
+      let contents = await readFile(path.join(workspace, file))
+      if (compressor && isTile(file)) {
+        try { contents = await compressor.compress(contents) }
+        catch (error) { throw new Error(`Failed to compress map tile ${file}`, { cause: error }) }
+        if (compressor.stats.count % 1000 === 0 || compressor.stats.count === totalTiles) {
+          options.onTileProgress?.({ ...compressor.stats, total: totalTiles })
+        }
+      }
       hashed.set(file, { contents, hash: digest(contents) })
-    })
+    }, compressor ? 8 : 32)
+    if (compressor) tileStats = { ...compressor.stats }
     // Sorted paths and content hashes keep the URL stable across unchanged builds.
     const version = digest(files.map(file => `${file}\0${hashed.get(file).hash}\n`).join(''))
     const prefix = `data/${version}/${directory.slice(5)}`
     manifest[directory] = prefix
     for (const file of files) assets.push({ output: prefix + file.slice(directory.length), contents: hashed.get(file).contents })
   }
-  return { manifest, assets }
+  return { manifest, assets, tileStats }
 }
 
 export async function writeRuntimeAssets(workspace, plan) {

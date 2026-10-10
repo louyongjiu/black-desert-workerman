@@ -7,7 +7,16 @@ import { createRuntimeAssetPlan, writeRuntimeAssets } from './runtime-assets.mjs
 
 const workspace = fileURLToPath(new URL('..', import.meta.url))
 await writeLanguageFiles(workspace)
-const runtime = await createRuntimeAssetPlan(workspace)
+const runtime = await createRuntimeAssetPlan(workspace, {
+  onTileProgress({ count, total, cachedTiles }) {
+    console.log(`Map tiles: ${count}/${total} processed (${cachedTiles} from cache)`)
+  },
+})
+if (runtime.tileStats) {
+  const { count, compressed, keptOriginal, originalBytes, outputBytes } = runtime.tileStats
+  const saved = originalBytes ? (100 * (originalBytes - outputBytes) / originalBytes).toFixed(1) : '0.0'
+  console.log(`Map tiles: ${originalBytes} -> ${outputBytes} bytes (${saved}% smaller); ${compressed}/${count} compressed, ${keptOriginal} originals retained`)
+}
 const result = await build({
   configFile: fileURLToPath(new URL('../vite.config.js', import.meta.url)),
   define: { __RESOURCE_MANIFEST__: JSON.stringify(runtime.manifest) },
