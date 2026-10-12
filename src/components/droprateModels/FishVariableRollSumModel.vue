@@ -429,7 +429,7 @@ export default {
             : Math.max(this.avg_size * 4, this.achievableRange.max),
         },
         yAxis: {
-          name: '% of total',
+          name: this.$t("% of total"),
           nameGap: 11,
           axisLine: { onZero: false },
           axisLabel: {
@@ -445,12 +445,12 @@ export default {
         },
         series: [
           {
-            name: 'observed',
+            name: this.$t("observed"),
             type: 'bar',
             encode: { x: 0, y: 1 },
           },
           {
-            name: 'model',
+            name: this.$t("model"),
             type: 'line',
             datasetIndex: 1,
             encode: { x: 0, y: 1 },
@@ -458,7 +458,7 @@ export default {
             lineStyle: { width: 2 },
           },
           {
-            name: `${Math.max(1, this.unconditionalRollsValue)} rolls`,
+            name: `${Math.max(1, this.unconditionalRollsValue)} ${this.$t('rolls')}`,
             type: 'line',
             datasetIndex: 2,
             encode: { x: 0, y: 1 },
@@ -466,7 +466,7 @@ export default {
             lineStyle: { width: 1 },
           },
           {
-            name: `${Math.max(1, this.unconditionalRollsValue) + 1} rolls`,
+            name: `${Math.max(1, this.unconditionalRollsValue) + 1} ${this.$t('rolls')}`,
             type: 'line',
             datasetIndex: 3,
             encode: { x: 0, y: 1 },
@@ -474,7 +474,7 @@ export default {
             lineStyle: { width: 1 },
           },
           {
-            name: `${Math.max(1, this.unconditionalRollsValue) + 2} rolls`,
+            name: `${Math.max(1, this.unconditionalRollsValue) + 2} ${this.$t('rolls')}`,
             type: 'line',
             datasetIndex: 4,
             encode: { x: 0, y: 1 },
@@ -482,7 +482,7 @@ export default {
             lineStyle: { width: 1 },
           },
           {
-            name: `${Math.max(1, this.unconditionalRollsValue) + 3} rolls`,
+            name: `${Math.max(1, this.unconditionalRollsValue) + 3} ${this.$t('rolls')}`,
             type: 'line',
             datasetIndex: 5,
             encode: { x: 0, y: 1 },
@@ -685,11 +685,9 @@ export default {
 </script>
 
 <template>
-  
-
   <span class="controls">
     <label>
-      unconditional rolls:
+      {{ $t('unconditional rolls:') }}
       <input
         v-model.number="unconditionalRolls"
         type="number"
@@ -698,12 +696,12 @@ export default {
         max="5"
         step="1"
         @change="unconditionalRolls = unconditionalRollsValue"
-      >
+      />
     </label>
   </span>
 
   <div class="controls">
-    conditional rolls: if
+    {{ $t('conditional rolls: if') }}
     <span class="previous-cutoffs">
       <input
         v-model.number="previousLowerCutoff"
@@ -711,20 +709,20 @@ export default {
         min="0"
         max="1"
         step="0.005"
-        aria-label="lower previous-roll cutoff"
-      >
-      ≥ previous roll ≥
+        :aria-label="$t('lower previous-roll cutoff')"
+      />
+      {{ $t('≥ previous roll ≥') }}
       <input
         v-model.number="previousUpperCutoff"
         type="number"
         min="0"
         max="1"
         step="0.005"
-        aria-label="upper previous-roll cutoff"
-      >
+        :aria-label="$t('upper previous-roll cutoff')"
+      />
     </span>
     <label>
-      max rolls
+      {{ $t('max rolls') }}
       <input
         v-model.number="maxRolls"
         type="number"
@@ -733,37 +731,44 @@ export default {
         max="1000"
         step="1"
         @change="maxRolls = maxRollsValue"
-      >
+      />
     </label>
 
     <label>
-      offset
-      <input type="number" class="w5em" v-model.number="offset" min="0" step="0.1">
+      {{ $t('offset') }}
+      <input
+        type="number"
+        class="w5em"
+        v-model.number="offset"
+        min="0"
+        step="0.1"
+      />
     </label>
-
-    
   </div>
-
-
-  mean M = {{ formatFixed(theoreticalMean, 3) }},
-  achievable range: min = {{ formatFixed(achievableRange.min, 3) }},
-  max = {{ formatFixed(achievableRange.max, 3) }}
+  {{ $t('mean M =') }} {{ formatFixed(theoreticalMean, 3)
+  }}{{ $t(', achievable range: min =') }}
+  {{ formatFixed(achievableRange.min, 3) }}{{ $t(', max =') }}
+  {{ formatFixed(achievableRange.max, 3) }}
   <span
     v-if="stats.len > 0"
     role="img"
-    :aria-label="coversObservedRange ? 'covers observed range' : 'does not cover observed range'"
-  >{{ coversObservedRange ? '✓' : '✗' }}</span>
+    :aria-label="
+      coversObservedRange
+        ? $t('covers observed range')
+        : $t('does not cover observed range')
+    "
+    >{{ coversObservedRange ? '✓' : '✗' }}</span
+  >
 
-  <div>
-    <input type="checkbox" v-model="square">
-    square
-  </div>
-
-
-  
+  <div><input type="checkbox" v-model="square" /> {{ $t('square') }}</div>
 
   <div class="chart">
-    <v-chart ref="chart" :option="chartOption" :update-options="{ notMerge: false }" autoresize />
+    <v-chart
+      ref="chart"
+      :option="chartOption"
+      :update-options="{ notMerge: false }"
+      autoresize
+    />
   </div>
 
   <pre><code>{{ codeSnippet }}</code></pre>

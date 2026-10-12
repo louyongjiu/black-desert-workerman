@@ -29,6 +29,10 @@ const router = createRouter({
       component: PlantzonesView
     },
     {
+      path: '/optimizer',
+      component: () => import('../views/EmpireOptimizerView.vue')
+    },
+    {
       path: '/resources',
       component: ResourcesView
     },

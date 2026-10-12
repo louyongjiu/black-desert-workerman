@@ -1,7 +1,9 @@
+import {translate} from '../i18n/index.mjs'
 import {defineStore} from "pinia";
 import {useGameStore} from './game'
 import {useRoutingStore} from './routing'
 import {searchSorted, formatFixed} from '../util.js'
+import {cyclesDaily as calculateCyclesDaily} from '../optimizer/calculations.mjs'
 
 export const useUserStore = defineStore({
   id: "user",
@@ -25,6 +27,8 @@ export const useUserStore = defineStore({
     houseTaken: {},
 
     userWorkers: [],
+    optimizerPlan: null,
+    optimizerUndo: null,
     useDefaultWorker: false,
     defaultWorker: {
       tnk: 0,
@@ -269,29 +273,10 @@ export const useUserStore = defineStore({
     },
     
     calcCyclesDaily(baseWorkload, rgk, wspd, dist, mspd) {
-      let ret = 0
-      const moveMinutes = this.calcWalkMinutes(dist, mspd)
-      if (this.allowFloating && this.useFloatingResources[rgk]) {
-        for (const r of this.tierResources(rgk, baseWorkload, wspd)) {
-          const workMinutes = Math.ceil(r.wld / wspd)
-          const cycleMinutes = 10 * workMinutes + moveMinutes
-
-          //if (wspd == 153 || wspd == 154) 
-          //  console.log('+', r.time, cycleMinutes, r.wld, wspd)
-
-          ret += 24 * 60 * r.time / 100 / cycleMinutes
-        }
-      }
-      else {
-        const activeWorkload = baseWorkload * (2 - this.productivity(rgk))
-        const workMinutes = Math.ceil(activeWorkload / wspd)
-        const cycleMinutes = 10 * workMinutes + moveMinutes
-        ret = 24 * 60 / cycleMinutes
-        //console.log('cycleMinutes', ret)
-      }
-      //console.log(baseWorkload, this.useFloatingResources[rgk], wspd, dist, mspd, 'cycleMinutes', ret)
-      
-      return ret
+      return calculateCyclesDaily(baseWorkload, wspd, dist, mspd, {
+        floating: Boolean(this.allowFloating && this.useFloatingResources[rgk]),
+        productivity: this.productivity(rgk), times: this.modTimes[rgk],
+      })
     },
 
     modifyGrindTakens(e, pzk) {
@@ -394,17 +379,17 @@ export const useUserStore = defineStore({
 
       if (this.townsTotalIncome[tk].hasNegativeJob || townTotalIncome == 0)  {
         ret.value = townInfraCp / townTotalWorkers
-        ret.tooltip = `= total lodgage costs of hometown shared equally between all active jobs from that town:\n` +
+        ret.tooltip = `= ${translate('Housing costs shared equally among active jobs from this town:', this.selectedLang)}\n` +
         `${townInfraCp}CP / ${townTotalWorkers}`
       }
       else {
         if (townTotalWorkers == 1) {
           ret.value = townInfraCp
-          ret.tooltip = `= all costs of ${gameStore.nodeName(w.tnk)} lodgage`
+          ret.tooltip = `= ${translate('All housing costs for {town}', this.selectedLang, { town: gameStore.nodeName(w.tnk) })}`
         }
         else {
           ret.value = townInfraCp * (income / townTotalIncome)
-          ret.tooltip = `= total lodgage costs of hometown shared proportionally between all active jobs from that town:\n` +
+          ret.tooltip = `= ${translate('Housing costs shared in proportion to active job income from this town:', this.selectedLang)}\n` +
           `${townInfraCp}CP * (${formatFixed(income, 3)} / ${formatFixed(townTotalIncome, 3)})`
         }
       }
@@ -837,7 +822,7 @@ export const useUserStore = defineStore({
         const newStorage = new Set([...state.townsStoreItemkeys[tk], ...itemkeys]).size
         const newInfra = state.townInfra(tk, state.townWorkingWorkers(tk).length+dl, newStorage)
         const gameStore = useGameStore()
-        const infraTooltip = gameStore.uloc.town[tk] + ` housing:\nold: ${Math.max(0, oldInfra.wantLodging)}🛏️ + ${Math.max(0, oldInfra.wantStorage)}📦 = ${formatFixed(oldInfra.cost)} CP\nnew: ${Math.max(0, newInfra.wantLodging)}🛏️ + ${Math.max(0, newInfra.wantStorage)}📦 = ${formatFixed(newInfra.cost)} CP`
+        const infraTooltip = gameStore.uloc.town[tk] + ` ${translate('housing:', state.selectedLang)}\n${translate('old:', state.selectedLang)} ${Math.max(0, oldInfra.wantLodging)}🛏️ + ${Math.max(0, oldInfra.wantStorage)}📦 = ${formatFixed(oldInfra.cost)} CP\n${translate('new:', state.selectedLang)} ${Math.max(0, newInfra.wantLodging)}🛏️ + ${Math.max(0, newInfra.wantStorage)}📦 = ${formatFixed(newInfra.cost)} CP`
         return {
           cost: newInfra.cost - oldInfra.cost,
           tooltip: infraTooltip,
@@ -882,9 +867,9 @@ export const useUserStore = defineStore({
           return inner.sameTown
         }
         const tooltip = gameStore.uloc.town[lodgingTk] + 
-          ` lodging:\nold: ${Math.max(0, lodgingOldInfra.wantLodging)}🛏️ + ${Math.max(0, lodgingOldInfra.wantStorage)}📦 = ${formatFixed(lodgingOldInfra.cost)} CP\nnew: ${Math.max(0, lodgingNewInfra.wantLodging)}🛏️ + ${Math.max(0, lodgingNewInfra.wantStorage)}📦 = ${formatFixed(lodgingNewInfra.cost)} CP` + "\n" +
+          ` ${translate('lodging:', state.selectedLang)}\n${translate('old:', state.selectedLang)} ${Math.max(0, lodgingOldInfra.wantLodging)}🛏️ + ${Math.max(0, lodgingOldInfra.wantStorage)}📦 = ${formatFixed(lodgingOldInfra.cost)} CP\n${translate('new:', state.selectedLang)} ${Math.max(0, lodgingNewInfra.wantLodging)}🛏️ + ${Math.max(0, lodgingNewInfra.wantStorage)}📦 = ${formatFixed(lodgingNewInfra.cost)} CP` + "\n" +
           gameStore.uloc.town[storTk] +
-          ` storage:\nold: ${Math.max(0, storageOldInfra.wantLodging)}🛏️ + ${Math.max(0, storageOldInfra.wantStorage)}📦 = ${formatFixed(storageOldInfra.cost)} CP\nnew: ${Math.max(0, storageNewInfra.wantLodging)}🛏️ + ${Math.max(0, storageNewInfra.wantStorage)}📦 = ${formatFixed(storageNewInfra.cost)} CP`
+          ` ${translate('storage:', state.selectedLang)}\n${translate('old:', state.selectedLang)} ${Math.max(0, storageOldInfra.wantLodging)}🛏️ + ${Math.max(0, storageOldInfra.wantStorage)}📦 = ${formatFixed(storageOldInfra.cost)} CP\n${translate('new:', state.selectedLang)} ${Math.max(0, storageNewInfra.wantLodging)}🛏️ + ${Math.max(0, storageNewInfra.wantStorage)}📦 = ${formatFixed(storageNewInfra.cost)} CP`
         return {
           cost: storageCostDelta + lodgingNewInfra.cost - lodgingOldInfra.cost,
           tooltip,
@@ -907,7 +892,7 @@ export const useUserStore = defineStore({
         ret.sum += townInfra.cost
         if (isNaN(townInfra.cost)) {
           const townName = gameStore.uloc.town[tk]
-          ret.error = `unable to resolve housing at ${townName}`
+          ret.error = translate('unable to resolve housing at {town}', this.selectedLang, { town: townName })
         }
       })
       //console.log('townsInfrastructure', ret)

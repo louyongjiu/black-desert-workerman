@@ -51,45 +51,41 @@ export default {
 
 <template>
   <div id="toptext">
-    <p>Using 150/10/10 worker</p>
+    <p>{{ $t('Using 150/10/10 worker') }}</p>
   </div>
-  
+
   <table>
     <tr>
-      <th>Node/Town</th>
-      <th>connect</th>
-      <th>distance</th>
-      <th>M$/day</th>
-      <th>M$/day/CP</th>
+      <th>{{ $t('Node/Town') }}</th>
+      <th>{{ $t('connect') }}</th>
+      <th>{{ $t('distance') }}</th>
+      <th>{{ $t('M$/day') }}</th>
+      <th>{{ $t('M$/day/CP') }}</th>
     </tr>
 
-    <template v-for="pzd, pzk in gameStore.plantzones">
+    <template v-for="(pzd, pzk) in gameStore.plantzones">
       <tr>
         <td colspan="5">
           <h3>{{ pzk }} {{ pzd.name }}</h3>
-
         </td>
       </tr>
       <tr v-for="townData in plantzonesNearestCpTownsProfits150[pzk]">
         <td>
-        {{ gameStore.nodeName(townData.tnk) }} 
+          {{ gameStore.nodeName(townData.tnk) }}
+        </td>
+        <td>{{ townData.cp }}{{ $t('CP') }}</td>
+        <td>
+          {{ formatFixed(townData.dist, 0) }}
         </td>
         <td>
-        {{ townData.cp }}CP 
+          {{ formatFixed(townData.priceDaily, 2) }}
         </td>
         <td>
-        {{ formatFixed(townData.dist, 0) }}
-        </td>
-        <td>
-        {{ formatFixed(townData.priceDaily, 2) }} 
-        </td>
-        <td>
-        {{ formatFixed(townData.dailyPerCp, 3) }} 
+          {{ formatFixed(townData.dailyPerCp, 3) }}
         </td>
       </tr>
     </template>
   </table>
-
 </template>
 
 <style>

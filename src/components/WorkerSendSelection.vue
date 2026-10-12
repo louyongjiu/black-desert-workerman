@@ -142,28 +142,30 @@ export default {
   <template v-if="w">
     <div class="spaced-columns">
       <div>
-        Send {{ w.label }} 
-        
+        {{ $t('Send') }} {{ w.label }}
+
         (
-          <template v-if="userStore.displayWorkerStatsForPz">
-            {{ formatFixed(gameStore.workerStatsOnPlantzone(w).wspd, 2) }}🔨
-            {{ formatFixed(gameStore.workerStatsOnPlantzone(w).mspd, 2) }}🦶
-            {{ formatFixed(gameStore.workerStatsOnPlantzone(w).luck, 2) }}🍀
-          </template>
-          <template v-else>
-            {{ formatFixed(w.wspdSheet, 2) }}🔨
-            {{ formatFixed(w.mspdSheet, 2) }}🦶
-            {{ formatFixed(w.luckSheet, 2) }}🍀
-          </template>
-        )
-        where?<br/>
-        {{ workerNearestCpPlantzonesProfit.length }} top untaken nodes 
-        near {{ gameStore.uloc.node[w.tnk] }}:
+        <template v-if="userStore.displayWorkerStatsForPz">
+          {{ formatFixed(gameStore.workerStatsOnPlantzone(w).wspd, 2) }}🔨
+          {{ formatFixed(gameStore.workerStatsOnPlantzone(w).mspd, 2) }}🦶
+          {{ formatFixed(gameStore.workerStatsOnPlantzone(w).luck, 2) }}🍀
+        </template>
+        <template v-else>
+          {{ formatFixed(w.wspdSheet, 2) }}🔨
+          {{ formatFixed(w.mspdSheet, 2) }}🦶
+          {{ formatFixed(w.luckSheet, 2) }}🍀
+        </template>
+        {{ $t(') where?') }}<br />
+        {{ workerNearestCpPlantzonesProfit.length }}
+        {{ $t('top untaken nodes near') }} {{ gameStore.uloc.node[w.tnk] }}:
       </div>
       <div>
-        stash:
+        {{ $t('stash:') }}
         <select v-model="selectedRedirect">
-          <option v-for="tnk in gameStore.townsWithRedirectableStorageSet" :value="tnk">
+          <option
+            v-for="tnk in gameStore.townsWithRedirectableStorageSet"
+            :value="tnk"
+          >
             {{ gameStore.uloc.node[tnk] }}
           </option>
         </select>
@@ -172,31 +174,32 @@ export default {
 
     <table>
       <tr>
-        <th>node</th>
-        <th>workload</th>
-        <th>walk</th>
-        <th>+M$/day</th>
-        <th>+CP</th>
-        <th>M$/day/CP</th>
-        <th v-if="0">+efficiency</th>
-        <th>action</th>
+        <th>{{ $t('node') }}</th>
+        <th>{{ $t('workload') }}</th>
+        <th>{{ $t('walk') }}</th>
+        <th>{{ $t('+M$/day') }}</th>
+        <th>{{ $t('+CP') }}</th>
+        <th>{{ $t('M$/day/CP') }}</th>
+        <th v-if="0">{{ $t('+efficiency') }}</th>
+        <th>{{ $t('action') }}</th>
       </tr>
 
       <tr v-for="job in workerNearestCpPlantzonesProfit">
         <td>
-          <a :href="this.userStore.externalNodeUrl+job.pz.key">
-          {{ job.pz.name }}
+          <a :href="this.userStore.externalNodeUrl + job.pz.key">
+            {{ job.pz.name }}
           </a>
           <template v-for="k in this.gameStore.plantzones[job.pz.key].itemkeys">
             {{ ' ' }}
-            <RouterLink tag="a" :to="{path: './settings', hash: '#item' + k}">
-              <ItemIcon :ik="Number(k)"/>
+            <RouterLink tag="a" :to="{ path: './settings', hash: '#item' + k }">
+              <ItemIcon :ik="Number(k)" />
             </RouterLink>
           </template>
         </td>
-        
+
         <td class="tac">
-          {{ userStore.useFloatingResources[job.pz.regiongroup] ? "~" : "" }}{{ formatFixed(userStore.medianWorkloads[job.pz.key], 2) }}
+          {{ userStore.useFloatingResources[job.pz.regiongroup] ? '~' : ''
+          }}{{ formatFixed(userStore.medianWorkloads[job.pz.key], 2) }}
         </td>
 
         <td class="tac">
@@ -206,11 +209,24 @@ export default {
           {{ formatFixed(job.profit.priceDaily, 2) }}
         </td>
         <td class="tac">
-          <abbr :title="Array.from(job.path, nk => `${routingStore.routing.autotakenNodes.has(nk) ? 0 : gameStore.nodes[nk].CP} ${gameStore.uloc.node[nk]}`).join('\n')" class="tooltip">
-            {{ job.mapCp }}
-          </abbr>+<abbr :title="job.infraTooltip" class="tooltip">
-            {{ formatFixed(job.townCp) }}
-          </abbr>={{ formatFixed(job.cp) }}
+          <abbr
+            :title="
+              Array.from(
+                job.path,
+                (nk) =>
+                  `${
+                    routingStore.routing.autotakenNodes.has(nk)
+                      ? 0
+                      : gameStore.nodes[nk].CP
+                  } ${gameStore.uloc.node[nk]}`
+              ).join('\n')
+            "
+            class="tooltip"
+          >
+            {{ job.mapCp }} </abbr
+          >+<abbr :title="job.infraTooltip" class="tooltip">
+            {{ formatFixed(job.townCp) }} </abbr
+          >={{ formatFixed(job.cp) }}
         </td>
         <td class="tac">
           {{ formatFixed(job.dailyPerCp, 2) }}
@@ -219,18 +235,33 @@ export default {
           {{ formatFixed(job.effDelta, 3, true) }}
         </td>
         <td>
-          <button @click="assignWorkerPz(w, job.pz.key)">assign</button>
+          <button @click="assignWorkerPz(w, job.pz.key)">
+            {{ $t('assign') }}
+          </button>
         </td>
       </tr>
 
-      <tr><td colspan="7" class="center">Special jobs (not node based)</td></tr>
+      <tr>
+        <td colspan="7" class="center">
+          {{ $t('Special jobs (not node based)') }}
+        </td>
+      </tr>
 
       <tr v-if="userStore.farmingEnable && userStore.workersFarmingCount < 10">
         <td>
-          🌻 Farm <abbr title="see Settings page: singleWorkerProfit = (fullWorkersProfit - noWorkersProfit) / 10" class="tooltip">ℹ</abbr>
+          {{ $t('🌻 Farm') }}
+          <abbr
+            :title="
+              $t(
+                'see Settings page: singleWorkerProfit = (fullWorkersProfit - noWorkersProfit) / 10'
+              )
+            "
+            class="tooltip"
+            >ℹ</abbr
+          >
         </td>
-        <td class="tac">x</td>
-        <td class="tac">x</td>
+        <td class="tac">{{ $t('x') }}</td>
+        <td class="tac">{{ $t('x') }}</td>
         <td class="tac">
           {{ formatFixed(thisFarmSelectionEntry.income, 2) }}
         </td>
@@ -246,13 +277,13 @@ export default {
           {{ formatFixed(thisFarmSelectionEntry.effDelta, 3, true) }}
         </td>
         <td>
-          <button @click="assignWorkerFm(w)">assign</button>
+          <button @click="assignWorkerFm(w)">{{ $t('assign') }}</button>
         </td>
       </tr>
 
       <tr v-for="e in workerWorkshopsProfit">
         <td>
-          🏭 
+          🏭
           {{ gameStore.uloc.char[e.hk] }}
           {{ e.workshop.label }}
         </td>
@@ -262,18 +293,36 @@ export default {
         <td class="tac">
           {{ formatFixed(e.profit.distance, 0) }}
         </td>
-        <td class="tac"> 
+        <td class="tac">
           {{ formatFixed(e.profit.priceDaily, 2) }}
         </td>
         <td class="tac">
-          <abbr class="tooltip" :title="'connection cost:\n'+Array.from(e.path, nk => `${routingStore.routing.autotakenNodes.has(nk) ? 0 : gameStore.nodes[nk].CP} ${gameStore.uloc.node[nk]}`).join('\n')">
-            {{ e.mapCp }}
-          </abbr>+<abbr class="tooltip" title="cost of operating the workshop
-(see Settings > 🏭Workshops)">
-            {{ formatFixed(e.houseCp, 2, false, true) }}
-          </abbr>+<abbr :title="e.infraTooltip" class="tooltip">
-            {{ e.townCp }}
-          </abbr>={{ formatFixed(e.cp, 2, false, true) }}
+          <abbr
+            class="tooltip"
+            :title="
+              $t('connection cost:\n') +
+              Array.from(
+                e.path,
+                (nk) =>
+                  `${
+                    routingStore.routing.autotakenNodes.has(nk)
+                      ? 0
+                      : gameStore.nodes[nk].CP
+                  } ${gameStore.uloc.node[nk]}`
+              ).join('\n')
+            "
+          >
+            {{ e.mapCp }} </abbr
+          >+<abbr
+            class="tooltip"
+            :title="
+              $t('cost of operating the workshop\n(see Settings > 🏭Workshops)')
+            "
+          >
+            {{ formatFixed(e.houseCp, 2, false, true) }} </abbr
+          >+<abbr :title="e.infraTooltip" class="tooltip">
+            {{ e.townCp }} </abbr
+          >={{ formatFixed(e.cp, 2, false, true) }}
         </td>
         <td class="tac">
           {{ formatFixed(e.dailyPerCp, 2) }}
@@ -282,41 +331,67 @@ export default {
           {{ formatFixed(e.effDelta, 3, true) }}
         </td>
         <td>
-          <button @click="assignWorkerWorkshop(w, e.hk)">assign</button>
+          <button @click="assignWorkerWorkshop(w, e.hk)">
+            {{ $t('assign') }}
+          </button>
         </td>
       </tr>
 
       <tr>
         <td>
-          ✍️ Custom job
-          <abbr title="enter daily profit and CP cost for this specific job PER ONE WORKER" class="tooltip">ℹ</abbr>
-          <div style="float: right;">
-            &nbsp;label: <input v-model="customLabel" class="workshop-label-input"/>
+          {{ $t('✍️ Custom job') }}
+          <abbr
+            :title="
+              $t(
+                'enter daily profit and CP cost for this specific job PER ONE WORKER'
+              )
+            "
+            class="tooltip"
+            >ℹ</abbr
+          >
+          <div style="float: right">
+             {{ $t('label:') }}
+            <input v-model="customLabel" class="workshop-label-input" />
           </div>
         </td>
-        <td class="tac">x</td>
-        <td class="tac">x</td>
-        <td class="tac"> 
-          <input type="number" class="float4" step="0.1" v-model.number="customProfit"/> 
+        <td class="tac">{{ $t('x') }}</td>
+        <td class="tac">{{ $t('x') }}</td>
+        <td class="tac">
+          <input
+            type="number"
+            class="float4"
+            step="0.1"
+            v-model.number="customProfit"
+          />
         </td>
         <td class="tac">
-          <input type="number" class="float3" v-model.number="customCP"/>+<abbr :title="addBedHereInfo.tooltip" class="tooltip">
-            {{ formatFixed(addBedHereInfo.cost) }}
-          </abbr>={{ formatFixed(customCP+addBedHereInfo.cost) }}
+          <input type="number" class="float3" v-model.number="customCP" />+<abbr
+            :title="addBedHereInfo.tooltip"
+            class="tooltip"
+          >
+            {{ formatFixed(addBedHereInfo.cost) }} </abbr
+          >={{ formatFixed(customCP + addBedHereInfo.cost) }}
         </td>
         <td class="tac">
-          {{ formatFixed(customProfit / (customCP+addBedHereInfo.cost), 2) }}
+          {{ formatFixed(customProfit / (customCP + addBedHereInfo.cost), 2) }}
         </td>
         <td v-if="0" class="tac">
-          {{ formatFixed(userStore.jobEfficiencyDelta(customProfit, customCP+addBedHereInfo.cost), 3, true) }}
+          {{
+            formatFixed(
+              userStore.jobEfficiencyDelta(
+                customProfit,
+                customCP + addBedHereInfo.cost
+              ),
+              3,
+              true
+            )
+          }}
         </td>
         <td>
-          <button @click="assignWorkerCustom(w)">assign</button>
+          <button @click="assignWorkerCustom(w)">{{ $t('assign') }}</button>
         </td>
       </tr>
-
     </table>
-
   </template>
 </template>
 

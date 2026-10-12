@@ -1,4 +1,5 @@
 <script>
+import LocalizedFileInput from '../components/LocalizedFileInput.vue'
 import {useGameStore} from '../stores/game.js'
 import {useUserStore} from '../stores/user.js'
 import {useMarketStore} from '../stores/market.js'
@@ -16,6 +17,7 @@ export default {
     return { gameStore, userStore, marketStore }
   },
   components: {
+    LocalizedFileInput,
     ModalDialog,
     FloatingResourceEdit,
   },
@@ -109,57 +111,86 @@ export default {
 <template>
   <ModalDialog v-model:show="importDialogVisible">
     <form @submit.prevent="fileImport($event)">
-      <input type="file" accept=".json" @click="fileImport()" />
-      <button>import</button>
+      <LocalizedFileInput accept=".json" />
+      <button>{{ $t('import') }}</button>
     </form>
   </ModalDialog>
 
   <ModalDialog v-model:show="floatingDialogVisible">
-    <FloatingResourceEdit 
+    <FloatingResourceEdit
       :rgk="floatingDialogRgroup"
       :wspd="floatingDialogWspd"
       :workload="floatingDialogWkld"
       v-model:show="floatingDialogVisible"
-    /><br/>
-    Test on node:
+    /><br />
+    {{ $t('Test on node:') }}
     <select v-model="floatingDialogWkld">
-      <option 
-        v-for="pzk in gameStore.regionGroups[floatingDialogRgroup]" 
+      <option
+        v-for="pzk in gameStore.regionGroups[floatingDialogRgroup]"
         :value="gameStore.plantzones[pzk] && gameStore.plantzones[pzk].peg.time"
       >
-        {{ gameStore.plantzoneName(pzk) }} ({{ gameStore.plantzones[pzk] && gameStore.plantzones[pzk].peg.time }} base)
+        {{ gameStore.plantzoneName(pzk) }} ({{
+          gameStore.plantzones[pzk] && gameStore.plantzones[pzk].peg.time
+        }}
+        {{ $t('base)') }}
       </option>
     </select>
-    <br/>
-    With workspeed:
-    <input 
-      type="range" 
+    <br />
+    {{ $t('With workspeed:') }}
+    <input
+      type="range"
       class="vmid"
-      v-model.number="floatingDialogWspd" 
-      min="40" 
-      max="200" 
+      v-model.number="floatingDialogWspd"
+      min="40"
+      max="200"
       step="0.01"
-    >
+    />
     {{ floatingDialogWspd }}
   </ModalDialog>
 
   <div id="toptext">
-    <p>These values are shown ingame as green bars at world map > resource view.</p>
-    <p>However, the client has several resource bars hidden/misplaced, for those you can check the current workload in worker assignment panel ingame and infer the resource% from that.</p>
-    <p>Low (exhausted) resource means workloads of relevant nodes are increased (up to 2x of base) so each job takes longer to complete.</p>
-    <p>If unspecified here, 0% resource will be used (= max workload = longest cycle = min cycles per day = min profit)</p>
-    
+    <p>
+      {{
+        $t(
+          'These values are shown ingame as green bars at world map > resource view.'
+        )
+      }}
+    </p>
+    <p>
+      {{
+        $t(
+          'However, the client has several resource bars hidden/misplaced, for those you can check the current workload in worker assignment panel ingame and infer the resource% from that.'
+        )
+      }}
+    </p>
+    <p>
+      {{
+        $t(
+          'Low (exhausted) resource means workloads of relevant nodes are increased (up to 2x of base) so each job takes longer to complete.'
+        )
+      }}
+    </p>
+    <p>
+      {{
+        $t(
+          'If unspecified here, 0% resource will be used (= max workload = longest cycle = min cycles per day = min profit)'
+        )
+      }}
+    </p>
+
     <details>
-      <summary>Advanced</summary>
-      <button @click="importDialogVisible = true">import</button>
-      <button @click="fileExport()">export</button>
-      <button @click="clear()">clear</button>
+      <summary>{{ $t('Advanced') }}</summary>
+      <button @click="importDialogVisible = true">{{ $t('import') }}</button>
+      <button @click="fileExport()">{{ $t('export') }}</button>
+      <button @click="clear()">{{ $t('clear') }}</button>
       <label>
-        <input type="checkbox" v-model="userStore.allowFloating">allow floating resources
+        <input type="checkbox" v-model="userStore.allowFloating" />{{
+          $t('allow floating resources')
+        }}
       </label>
       <span v-if="userStore.allowFloating">
-        <button @click="setAllFloating(true)">all floating</button>
-        <button @click="setAllFloating(false)">all constant</button>
+        <button @click="setAllFloating(true)">{{ $t('all floating') }}</button>
+        <button @click="setAllFloating(false)">{{ $t('all constant') }}</button>
       </span>
     </details>
   </div>
@@ -167,13 +198,13 @@ export default {
   <table class="stickyhead">
     <thead>
       <tr>
-        <th>RG</th>
-        <th>Resource %</th>
-        <th>Contains nodes with workload (base → current)</th>
+        <th>{{ $t('RG') }}</th>
+        <th>{{ $t('Resource %') }}</th>
+        <th>{{ $t('Contains nodes with workload (base → current)') }}</th>
       </tr>
     </thead>
     <tbody>
-      <tr v-for="plantzones, rgk in gameStore.regionGroups">
+      <tr v-for="(plantzones, rgk) in gameStore.regionGroups">
         <td class="tac">
           {{ rgk }}
         </td>
@@ -181,40 +212,62 @@ export default {
         <td class="tac">
           <template v-if="userStore.allowFloating">
             <label class="switch mauto">
-              <input type="checkbox" v-model="userStore.useFloatingResources[rgk]">
+              <input
+                type="checkbox"
+                v-model="userStore.useFloatingResources[rgk]"
+              />
               <span class="slider"></span>
             </label>
           </template>
-          <template v-if="userStore.allowFloating && userStore.useFloatingResources[rgk]">
-            floating<br/>
+          <template
+            v-if="
+              userStore.allowFloating && userStore.useFloatingResources[rgk]
+            "
+          >
+            {{ $t('floating') }}<br />
             ~{{ formatFixed(userStore.medianResources[rgk], 2) }}
-            <button @click="showDialog(rgk)">edit</button>
+            <button @click="showDialog(rgk)">{{ $t('edit') }}</button>
           </template>
           <template v-else>
-            constant<br/>
-            <input type="number" v-model.number="userStore.regionResources[rgk]" min="0" max="100" step="0.01" class="w42em">
+            {{ $t('constant') }}<br />
+            <input
+              type="number"
+              v-model.number="userStore.regionResources[rgk]"
+              min="0"
+              max="100"
+              step="0.01"
+              class="w42em"
+            />
           </template>
         </td>
 
         <td>
           <div v-for="pzk in plantzones">
-            <RouterLink tag="a" :to="{path: './', hash: '#node' + pzk}">
+            <RouterLink tag="a" :to="{ path: './', hash: '#node' + pzk }">
               {{ gameStore.plantzoneName(pzk) }}
             </RouterLink>
             {{ gameStore.ready && gameStore.plantzones[pzk].peg.time }}
 
-            <template v-if="userStore.allowFloating && userStore.useFloatingResources[rgk]">
+            <template
+              v-if="
+                userStore.allowFloating && userStore.useFloatingResources[rgk]
+              "
+            >
               ⤳ {{ formatFixed(userStore.medianWorkloads[pzk], 2) }}
             </template>
             <template v-else>
-              → {{ gameStore.ready ? formatFixed(gameStore.plantzones[pzk].activeWorkload, 2) : "" }}
+              →
+              {{
+                gameStore.ready
+                  ? formatFixed(gameStore.plantzones[pzk].activeWorkload, 2)
+                  : ''
+              }}
             </template>
           </div>
         </td>
       </tr>
     </tbody>
   </table>
-
 </template>
 
 <style scoped>

@@ -360,6 +360,13 @@ export default {
   },
 
   methods: {
+    groupLabel(key) {
+      for (const prefix of ['by BS/FVS (', 'by AVG (']) {
+        if (key.startsWith(prefix)) return this.$t(prefix) + key.slice(prefix.length)
+      }
+      return key === 'ALL' ? this.$t('ALL') : key
+    },
+
     formatFixed,
     isNumber,
 
@@ -522,24 +529,24 @@ export default {
 <template>
   <main>
     <div id="menu">
-      <div style="display: none;">{{ selectedFish }}</div>
+      <div style="display: none">{{ selectedFish }}</div>
 
       <table>
         <tr>
-          <th>ik</th>
-          <th>BS</th>
-          <th>FVS</th>
-          <th>Avg</th>
-          <th>data</th>
+          <th>{{ $t('ik') }}</th>
+          <th>{{ $t('BS') }}</th>
+          <th>{{ $t('FVS') }}</th>
+          <th>{{ $t('Avg') }}</th>
+          <th>{{ $t('data') }}</th>
         </tr>
         <template v-for="[ik, sizes] in menuEntries" :key="ik">
           <tr v-if="sizes.length > 100">
             <td>
               <template v-if="ik.startsWith('by')">
-                <abbr class="tooltip" :title="ik">group</abbr>
+                <abbr class="tooltip" :title="groupLabel(ik)">{{ $t('group') }}</abbr>
               </template>
               <template v-else>
-                {{ ik }}
+                {{ ik === 'ALL' ? $t('ALL') : ik }}
               </template>
             </td>
             <td>
@@ -565,9 +572,7 @@ export default {
     </div>
 
     <div id="content">
-      
-      observed preprocessing:
-      <br/>
+      {{ $t('observed preprocessing:') }} <br />
       <span class="preprocessing-control">
         <label>
           <input
@@ -575,41 +580,41 @@ export default {
             :checked="relativeSizesActive"
             :disabled="selectedFish === 'ALL'"
             @change="mode_relative = $event.target.checked"
-          >
-          unscale to Avg=
+          />
+          {{ $t('unscale to Avg=') }}
         </label>
-        <input type="number" v-model="relative_base" step="10" class="w5em">
+        <input type="number" v-model="relative_base" step="10" class="w5em" />
       </span>
-      <br/>
+      <br />
       <label>
         <input
           type="checkbox"
           :checked="relativeSizesActive && mode_unsquare"
           :disabled="!relativeSizesActive"
           @change="mode_unsquare = $event.target.checked"
-        >
-        unsquare (take square root)
+        />
+        {{ $t('unsquare (take square root)') }}
       </label>
-      
 
       <details>
-        <summary>Dataset: 
-          size N = {{ stats.len }},
-          mean M = {{ formatFixed(stats.mean, 3) }}±{{ formatFixed(1.96 * stats.meanErr, 3) }},
-          min = {{ formatFixed(stats.min, 3) }},
-          max = {{ formatFixed(stats.max, 3) }}
-          (<a href="#" @click.prevent="downloadCurrentDataset">download</a>)
+        <summary>
+          {{ $t('Dataset: size N =') }} {{ stats.len }}{{ $t(', mean M =') }}
+          {{ formatFixed(stats.mean, 3) }}±{{
+            formatFixed(1.96 * stats.meanErr, 3)
+          }}{{ $t(', min =') }} {{ formatFixed(stats.min, 3)
+          }}{{ $t(', max =') }} {{ formatFixed(stats.max, 3) }} (<a
+            href="#"
+            @click.prevent="downloadCurrentDataset"
+            >{{ $t('download') }}</a
+          >)
         </summary>
 
         <table v-if="currentDataset.length <= 10000">
-          <tr v-for="vs, group in weightedDataset.grouped">
+          <tr v-for="(vs, group) in weightedDataset.grouped">
             <td v-for="v in vs">{{ formatFixed(v, 3) }}</td>
           </tr>
         </table>
-        <p v-else>
-          your browser will not handle this
-        </p>
-
+        <p v-else>{{ $t('your browser will not handle this') }}</p>
       </details>
 
       <div>
@@ -618,42 +623,42 @@ export default {
             :class="{ pressed: modelTab === 'rolls' }"
             @click="modelTab = 'rolls'"
           >
-            multiple rolls
+            {{ $t('multiple rolls') }}
           </button>
           <button
             :class="{ pressed: modelTab === 'sum' }"
             @click="modelTab = 'sum'"
           >
-            sum of distributions
+            {{ $t('sum of distributions') }}
           </button>
         </div>
 
         <div v-show="modelTab === 'rolls'">
           <div class="tabs roll-tabs">
-            <span>number of rolls </span>
+            <span>{{ $t('number of rolls') }} </span>
             <button
               :class="{ pressed: rollModelTab === 'variable' }"
               @click="rollModelTab = 'variable'"
             >
-              var sum
+              {{ $t('var sum') }}
             </button>
             <button
               :class="{ pressed: rollModelTab === 'variableMult' }"
               @click="rollModelTab = 'variableMult'"
             >
-              var mult
+              {{ $t('var mult') }}
             </button>
             <button
               :class="{ pressed: rollModelTab === 'separateMultiplied' }"
               @click="rollModelTab = 'separateMultiplied'"
             >
-              sep mult
+              {{ $t('sep mult') }}
             </button>
             <button
               :class="{ pressed: rollModelTab === 'fixed' }"
               @click="rollModelTab = 'fixed'"
             >
-              fixed
+              {{ $t('fixed') }}
             </button>
           </div>
 
@@ -678,7 +683,9 @@ export default {
           </div>
           <div v-show="rollModelTab === 'separateMultiplied'">
             <FishSeparateMultipliedModel
-              @distribution-change="modelDistributions.separateMultiplied = $event"
+              @distribution-change="
+                modelDistributions.separateMultiplied = $event
+              "
               :stats="stats"
               :histogram="histogram"
               :avg_size="currentAvgSize"
@@ -699,7 +706,7 @@ export default {
         <div v-show="modelTab === 'sum'">
           <FishModel
             @distribution-change="modelDistributions.sum = $event"
-            :stats="stats" 
+            :stats="stats"
             :histogram="histogram"
             :avg_size="currentAvgSize"
             :mode_relative="relativeSizesActive"
@@ -715,9 +722,7 @@ export default {
         :itemkey-count="selectedItemkeys.length"
         :observed-max="stats.max"
       />
-
     </div>
-
   </main>
 </template>
 

@@ -94,25 +94,31 @@ export default {
 <template>
   <main>
     <div id="toptext">
-      Region:
+      {{ $t('Region:') }}
       <select v-model="filterTown">
-        <option v-for="tk in towns" :value="tk">{{ (tk>=0 ? gameStore.uloc.town[tk] : 'any') }}</option>
+        <option v-for="tk in towns" :value="tk">
+          {{ tk >= 0 ? gameStore.uloc.town[tk] : $t('any') }}
+        </option>
       </select>
-
-      Usage:
+      {{ $t('Usage:') }}
       <select v-model="filterUsage">
-        <option v-for="u in usages" :value="u">{{ u>=0 ? gameStore.uloc.housetype[u] + ' ' + u : 'any'}}</option>
+        <option v-for="u in usages" :value="u">
+          {{ u >= 0 ? gameStore.uloc.housetype[u] + ' ' + u : $t('any') }}
+        </option>
       </select>
 
       <details v-if="filterUsage != -1">
-        <summary>{{ craftableCount }} craftables, {{ stackableCount }} stackable</summary>
-        <div v-for="crafts, n in this.houseCrafts[filterUsage].groups">
-          level {{ n+1 }}:
-            <table>
+        <summary>
+          {{ craftableCount }} {{ $t('craftables,') }} {{ stackableCount }}
+          {{ $t('stackable') }}
+        </summary>
+        <div v-for="(crafts, n) in this.houseCrafts[filterUsage].groups">
+          {{ $t('level') }} {{ n + 1 }}:
+          <table>
             <tr v-for="craft in crafts">
               <template v-for="ik in this.gameStore.craftOutputs[craft]">
-                <a :href="this.userStore.externalItemUrl+ik">
-                  <ItemIcon :ik="ik" :with_name="true"/>
+                <a :href="this.userStore.externalItemUrl + ik">
+                  <ItemIcon :ik="ik" :with_name="true" />
                 </a>
               </template>
             </tr>
@@ -122,29 +128,36 @@ export default {
     </div>
 
     <table>
-    <tr>
-      <th>town</th>
-      <th>node</th>
-      <th>name</th>
-      <th>CP (with chain)</th>
-      <th>usage/level</th>
-    </tr>
-    <template v-for="v, k in houses">
-      <tr v-if="(filterTown == -1 || v.affTown == filterTown) && (filterUsage == -1 || filterUsage in v.CraftList)">
-        <td>{{ v.affTown }}</td>
-        <td>{{ v.parentNode }}</td>
-        <td>
-          <a :href="'https://bdocodex.com/us/npc/'+v.key">{{ gameStore.uloc.char[v.key] }}</a>
-        </td>
-        <td>{{ v.CP }} ({{ v.CPfull }})</td>
-        <td>
-          <span v-for="level, housetype in v.CraftList">
-          {{ gameStore.uloc.housetype[housetype] }}<sup>{{ level }}</sup>{{' '}}
-          </span>
-        </td>
+      <tr>
+        <th>{{ $t('town') }}</th>
+        <th>{{ $t('node') }}</th>
+        <th>{{ $t('name') }}</th>
+        <th>{{ $t('CP (with chain)') }}</th>
+        <th>{{ $t('usage/level') }}</th>
       </tr>
-    </template>
+      <template v-for="(v, k) in houses">
+        <tr
+          v-if="
+            (filterTown == -1 || v.affTown == filterTown) &&
+            (filterUsage == -1 || filterUsage in v.CraftList)
+          "
+        >
+          <td>{{ v.affTown }}</td>
+          <td>{{ v.parentNode }}</td>
+          <td>
+            <a :href="'https://bdocodex.com/us/npc/' + v.key">{{
+              gameStore.uloc.char[v.key]
+            }}</a>
+          </td>
+          <td>{{ v.CP }} ({{ v.CPfull }})</td>
+          <td>
+            <span v-for="(level, housetype) in v.CraftList">
+              {{ gameStore.uloc.housetype[housetype] }}<sup>{{ level }}</sup
+              >{{ ' ' }}
+            </span>
+          </td>
+        </tr>
+      </template>
     </table>
-
   </main>
 </template>

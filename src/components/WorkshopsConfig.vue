@@ -129,126 +129,169 @@ export default {
 </script>
 
 <template>
-  <h3>🏭Workshops config</h3>
+  <h3>{{ $t('🏭Workshops config') }}</h3>
 
   <table class="sa">
     <tr>
-      <th>House</th>
+      <th>{{ $t('House') }}</th>
       <th>
-        label
-        <abbr class="tooltip" title="for display only">ℹ</abbr>
+        {{ $t('label') }}
+        <abbr class="tooltip" :title="$t('for display only')">ℹ</abbr>
       </th>
       <th>
-        worktype
-        <abbr class="tooltip" title="used to factor in some worker skills.
-also, only Mass Production can employ multiple workers at once.">ℹ</abbr>
+        {{ $t('worktype') }}
+        <abbr
+          class="tooltip"
+          :title="
+            $t(
+              'used to factor in some worker skills.\nalso, only Mass Production can employ multiple workers at once.'
+            )
+          "
+          >ℹ</abbr
+        >
+      </th>
+      <th>{{ $t('workload') }}</th>
+      <th>
+        {{ $t('$/cycle') }}
+        <abbr
+          :title="
+            $t(
+              'use Sho\'s Workshop Profitability Calculator &amp; gpw Trading/Crates Calculator to find out.\nFor crates, enter profit per 1 crate - if a worker with +1/+3 packing skill occupies this workshop it will be taken into account.'
+            )
+          "
+          class="tooltip"
+          >ℹ</abbr
+        >
       </th>
       <th>
-        workload
+        {{ $t('CP') }}
+        <abbr
+          :title="
+            $t(
+              'Full cost of operating the workshop, including:\n1) the workshop itself;\n2) house chain to connect the workshop (*after* autoassigned houses shown in Home > town config > Found cost spoiler);\n3) storage for input/output mats, if not provided by (2).\nThe only thing to not include here is lodging for the worker who is going to occupy the workshop.\nHowever, if your workshop house chain does provide lodging, reduce (2) accordingly. \nThe house chain can potentially provide storage and lodging not only for this workshop, but for other workshops of this town. \nIn this case, use average CP value (sum up all workshop-related CP costs and divide by active workshop count).'
+            )
+          "
+          class="tooltip"
+          >ℹ</abbr
+        >
       </th>
-      <th>
-        $/cycle 
-        <abbr title="use Sho's Workshop Profitability Calculator & gpw Trading/Crates Calculator to find out.
-For crates, enter profit per 1 crate - if a worker with +1/+3 packing skill occupies this workshop it will be taken into account." class="tooltip">ℹ</abbr>
-      </th>
-      <th>
-        CP
-        <abbr title="Full cost of operating the workshop, including:
-1) the workshop itself;
-2) house chain to connect the workshop (*after* autoassigned houses shown in Home > town config > Found cost spoiler);
-3) storage for input/output mats, if not provided by (2).
-The only thing to not include here is lodging for the worker who is going to occupy the workshop.
-However, if your workshop house chain does provide lodging, reduce (2) accordingly. 
-The house chain can potentially provide storage and lodging not only for this workshop, but for other workshops of this town. 
-In this case, use average CP value (sum up all workshop-related CP costs and divide by active workshop count)." class="tooltip">ℹ</abbr>
-      </th>
-      <th>action</th>
+      <th>{{ $t('action') }}</th>
     </tr>
 
-    <tr v-for="v, hk in userStore.userWorkshops">
+    <tr v-for="(v, hk) in userStore.userWorkshops">
       <td>
         {{ gameStore.uloc.char[hk] }}
       </td>
-      <td><input class="w5em" v-model.number="v.label"/></td>
-      <td><select v-model="v.industry">
-        <option value="unk">unknown</option>
-        <option value="jewelry">jewelry</option>
-        <option value="mass">mass</option>
-        <option value="weap">weapon</option>
-        <option value="tool">tool</option>
-        <option value="furn">furniture</option>
-        <option value="costume">costume</option>
-        <option value="refine">refine</option>
-        <option value="siege">siege</option>
-        <option value="mount">mount</option>
-        <option value="exclus">exclusive</option>
-        <option value="pack_produce">pack_produce</option>
-        <option value="pack_herb">pack_herb</option>
-        <option value="pack_mushr">pack_mushr</option>
-        <option value="pack_fish">pack_fish</option>
-        <option value="pack_timber">pack_timber</option>
-        <option value="pack_ore">pack_ore</option>
-      </select></td>
-      <td><input type="number" class="w5em" v-model.number="v.manualWorkload"/></td>
-      <td><input type="number" class="w7em" v-model.number="v.manualCycleIncome"/></td>
-      <td><input type="number" class="w5em" v-model.number="v.manualCp"/></td>
-      <td><button @click="deleteWorkshop(hk)">delete</button></td>
+      <td><input class="w5em" v-model.number="v.label" /></td>
+      <td>
+        <select v-model="v.industry">
+          <option value="unk">{{ $t('unknown') }}</option>
+          <option value="jewelry">{{ $t('jewelry') }}</option>
+          <option value="mass">{{ $t('mass') }}</option>
+          <option value="weap">{{ $t('weapon') }}</option>
+          <option value="tool">{{ $t('tool') }}</option>
+          <option value="furn">{{ $t('furniture') }}</option>
+          <option value="costume">{{ $t('costume') }}</option>
+          <option value="refine">{{ $t('refine') }}</option>
+          <option value="siege">{{ $t('siege') }}</option>
+          <option value="mount">{{ $t('mount') }}</option>
+          <option value="exclus">{{ $t('exclusive') }}</option>
+          <option value="pack_produce">{{ $t('pack_produce') }}</option>
+          <option value="pack_herb">{{ $t('pack_herb') }}</option>
+          <option value="pack_mushr">{{ $t('pack_mushr') }}</option>
+          <option value="pack_fish">{{ $t('pack_fish') }}</option>
+          <option value="pack_timber">{{ $t('pack_timber') }}</option>
+          <option value="pack_ore">{{ $t('pack_ore') }}</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" class="w5em" v-model.number="v.manualWorkload" />
+      </td>
+      <td>
+        <input
+          type="number"
+          class="w7em"
+          v-model.number="v.manualCycleIncome"
+        />
+      </td>
+      <td><input type="number" class="w5em" v-model.number="v.manualCp" /></td>
+      <td>
+        <button @click="deleteWorkshop(hk)">{{ $t('delete') }}</button>
+      </td>
     </tr>
-
   </table>
-  
-  <div style="float: right;">
-    <button @click="deleteAll()" title="except occupied">delete all</button>
-  </div>
 
-  new entry:<br/>
-  
+  <div style="float: right">
+    <button @click="deleteAll()" :title="$t('except occupied')">
+      {{ $t('delete all') }}
+    </button>
+  </div>
+  {{ $t('new entry:') }}<br />
+
   <table class="borderless">
     <tr>
-      <td>town</td>
+      <td>{{ $t('town') }}</td>
       <td>
         <select v-model="filterTown">
-          <option v-for="tk in filteredTowns" :value="tk">{{ tk>=0 ? gameStore.uloc.town[tk] : 'any'}}</option>
+          <option v-for="tk in filteredTowns" :value="tk">
+            {{ tk >= 0 ? gameStore.uloc.town[tk] : $t('any') }}
+          </option>
         </select>
       </td>
     </tr>
     <tr>
-      <td>usage</td>
+      <td>{{ $t('usage') }}</td>
       <td>
         <select v-model="filterUsage">
-          <option v-for="u in filteredUsages" :value="u">{{ u>=0 ? gameStore.uloc.housetype[u] + ' ' + u : 'any'}}</option>
+          <option v-for="u in filteredUsages" :value="u">
+            {{ u >= 0 ? gameStore.uloc.housetype[u] + ' ' + u : $t('any') }}
+          </option>
         </select>
       </td>
     </tr>
     <tr>
-      <td>level</td>
+      <td>{{ $t('level') }}</td>
       <td>
         <select v-model="filterLevel">
-          <option v-for="l in filteredLevels" :value="l">{{ l>=0 ? l + '+' : 'any'}}</option>
+          <option v-for="l in filteredLevels" :value="l">
+            {{ l >= 0 ? l + '+' : $t('any') }}
+          </option>
         </select>
       </td>
     </tr>
     <tr>
-      <td>house</td>
+      <td>{{ $t('house') }}</td>
       <td>
         <select v-model="selectedHouse">
-          <option v-for="hk in filteredHouses" :value="hk">{{ hk }} {{ gameStore.uloc.char[hk] }} {{ hk in userStore.userWorkshops ? '✔️' : '' }}</option>
+          <option v-for="hk in filteredHouses" :value="hk">
+            {{ hk }} {{ gameStore.uloc.char[hk] }}
+            {{ hk in userStore.userWorkshops ? '✔️' : '' }}
+          </option>
         </select>
         <span v-if="selectedHouse in userStore.userWorkshops" class="fsxs">
-          already in list!
+          {{ $t('already in list!') }}
         </span>
       </td>
     </tr>
   </table>
 
-  <button :disabled="selectedHouse == -1 || selectedHouse in userStore.userWorkshops" @click="addWorkshop(selectedHouse)">
-    add to my workshops
+  <button
+    :disabled="selectedHouse == -1 || selectedHouse in userStore.userWorkshops"
+    @click="addWorkshop(selectedHouse)"
+  >
+    {{ $t('add to my workshops') }}
   </button>
-  
-  {{  }}
-  <abbr class="tooltip" title="Note that assigning house as workshop does not prevent it from being used for autolodging/autostorage on Home page.
-You need to manually work around this.">ℹ</abbr>
 
+  {{}}
+  <abbr
+    class="tooltip"
+    :title="
+      $t(
+        'Note that assigning house as workshop does not prevent it from being used for autolodging/autostorage on Home page.\nYou need to manually work around this.'
+      )
+    "
+    >ℹ</abbr
+  >
 </template>
 
 <style scoped>

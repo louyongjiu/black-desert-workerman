@@ -2,6 +2,7 @@ import {defineStore} from "pinia";
 import {useGameStore} from './game.js'
 import {useUserStore} from './user.js'
 import {formatFixed} from '../util.js'
+import {appliedRouting} from '../optimizer/appliedRouting.mjs'
 
 export const useRoutingStore = defineStore({
   id: "routing",
@@ -25,7 +26,7 @@ export const useRoutingStore = defineStore({
             // replace a "wildcard town" 99999 with specific town
             altInput.push(pair[0] == grindNode && pair[1] == 99999 ? [grindNode, tryTown]: pair)
           }
-          const altSolution = gameStore.wasmRouter.solveForTerminalPairs(altInput)
+          const [altSolution] = gameStore.wasmRouter.solveForTerminalPairs(altInput)
           const altCost = altSolution.reduce((sum, item) => sum + gameStore.nodes[item].CP, 0)
           const currentCost = currentSolution.reduce((sum, item) => sum + gameStore.nodes[item].CP, 0)
           if (altCost < currentCost) {
@@ -45,6 +46,8 @@ export const useRoutingStore = defineStore({
  
     routing(state) {
       const userStore = useUserStore()
+      const optimized = appliedRouting(userStore, useGameStore())
+      if (optimized) return optimized
       return userStore.wasmRouting && useGameStore().wasmRouter ? state.routingWasm : state.routingOld
     },
 

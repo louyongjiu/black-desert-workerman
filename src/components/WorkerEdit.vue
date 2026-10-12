@@ -337,28 +337,46 @@ export default {
 <template>
   <div id="columns" v-if="workerEditing">
     <div id="worker">
-
       <table class="borderless">
         <tr>
-          <td>name:</td>
+          <td>{{ $t('name:') }}</td>
           <td>
-            <input v-model="workerEditing.label" style="width:10em;">
-            lvl.{{ workerEditing.level }} 
-            <button @click="levelupMe(workerEditing.level+1)">🠕</button>
-            <button @click="recalcStats(workerEditing.charkey, workerEditing.level-1)">🠗</button>
-            <button v-if="0" @click="levelupMe(40)" class="tooltip-btn" data-tooltip="random to max">🠕🠕</button>
-            <div style="float:right;">
-              <button v-if="wasChanged && workerInitial" @click="revert()">revert</button>
+            <input v-model="workerEditing.label" style="width: 10em" />
+            {{ $t('lvl.') }}{{ workerEditing.level }}
+            <button @click="levelupMe(workerEditing.level + 1)">🠕</button>
+            <button
+              @click="
+                recalcStats(workerEditing.charkey, workerEditing.level - 1)
+              "
+            >
+              🠗
+            </button>
+            <button
+              v-if="0"
+              @click="levelupMe(40)"
+              class="tooltip-btn"
+              :data-tooltip="$t('random to max')"
+            >
+              🠕🠕
+            </button>
+            <div style="float: right">
+              <button v-if="wasChanged && workerInitial" @click="revert()">
+                {{ $t('revert') }}
+              </button>
             </div>
           </td>
         </tr>
         <tr>
-          <td>type:</td>
+          <td>{{ $t('type:') }}</td>
           <td>
             <template v-if="prerelease_charkind">
-              <select @change="recalcStats($event.target.value, workerEditing.level)" :value="workerEditing.charkey">
-                <option v-for="st, k in gameStore.workerStatic" :value="k">
-                  {{ k }} {{ gameStore.uloc.char[k] }} {{ st.wspd/1E6 }} / {{ st.mspd/100 }} / {{ st.luck/1E4 }}
+              <select
+                @change="recalcStats($event.target.value, workerEditing.level)"
+                :value="workerEditing.charkey"
+              >
+                <option v-for="(st, k) in gameStore.workerStatic" :value="k">
+                  {{ k }} {{ gameStore.uloc.char[k] }} {{ st.wspd / 1e6 }} /
+                  {{ st.mspd / 100 }} / {{ st.luck / 1e4 }}
                 </option>
               </select>
             </template>
@@ -368,45 +386,80 @@ export default {
           </td>
         </tr>
 
-
         <tr v-if="workerEditing.job && gameStore.jobIsPz(workerEditing.job)">
-          <td>stash:</td>
+          <td>{{ $t('stash:') }}</td>
           <td>
             <select v-model="workerEditing.job.storage">
-              <option v-for="tnk in gameStore.townsWithRedirectableStorage" :value="tnk">
+              <option
+                v-for="tnk in gameStore.townsWithRedirectableStorage"
+                :value="tnk"
+              >
                 {{ gameStore.uloc.node[tnk] }}
               </option>
             </select>
           </td>
         </tr>
 
-
         <tr>
-          <td>job:</td>
+          <td>{{ $t('job:') }}</td>
           <td>
-            
             <template v-if="gameStore.jobIsIdle(workerEditing.job)">
-              idle
+              {{ $t('idle') }}
             </template>
 
             <template v-else-if="gameStore.jobIsPz(workerEditing.job)">
               {{ gameStore.plantzoneName(workerEditing.job.pzk) }}
-              / 
-              <span v-if="gameStore.ready && workerEditing.job && workerEditing.job.pzk && gameStore.plantzones[workerEditing.job.pzk].regiongroup && userStore.allowFloating && userStore.useFloatingResources[gameStore.plantzones[workerEditing.job.pzk].regiongroup]">
-                ~{{ formatFixed(userStore.medianWorkloads[workerEditing.job.pzk], 2) }}
-                <span id="spoiler" @click="showChartPane = !showChartPane">{{ showChartPane ? "◀" : "▶" }}</span>
+              /
+              <span
+                v-if="
+                  gameStore.ready &&
+                  workerEditing.job &&
+                  workerEditing.job.pzk &&
+                  gameStore.plantzones[workerEditing.job.pzk].regiongroup &&
+                  userStore.allowFloating &&
+                  userStore.useFloatingResources[
+                    gameStore.plantzones[workerEditing.job.pzk].regiongroup
+                  ]
+                "
+              >
+                ~{{
+                  formatFixed(
+                    userStore.medianWorkloads[workerEditing.job.pzk],
+                    2
+                  )
+                }}
+                <span id="spoiler" @click="showChartPane = !showChartPane">{{
+                  showChartPane ? '◀' : '▶'
+                }}</span>
               </span>
               <span v-else>
-                {{ formatFixed(gameStore.plantzones[workerEditing.job.pzk].activeWorkload, 2) }}
+                {{
+                  formatFixed(
+                    gameStore.plantzones[workerEditing.job.pzk].activeWorkload,
+                    2
+                  )
+                }}
               </span>
             </template>
 
             <template v-else-if="gameStore.jobIsCustom(workerEditing.job)">
               ✍️
-              <input class="workshop-label-input" v-model="workerEditing.job.label"/>
+              <input
+                class="workshop-label-input"
+                v-model="workerEditing.job.label"
+              />
               @
-              <input type="number" class="float4" step="0.1" v-model.number="workerEditing.job.profit"/>M$/day
-              <input type="number" class="float4" v-model.number="workerEditing.job.cp"/>CP
+              <input
+                type="number"
+                class="float4"
+                step="0.1"
+                v-model.number="workerEditing.job.profit"
+              />{{ $t('M$/day') }}
+              <input
+                type="number"
+                class="float4"
+                v-model.number="workerEditing.job.cp"
+              />{{ $t('CP') }}
             </template>
 
             <template v-else-if="gameStore.jobIsFarming(workerEditing.job)">
@@ -414,60 +467,103 @@ export default {
             </template>
 
             <template v-else-if="gameStore.jobIsWorkshop(workerEditing.job)">
-
-              <select v-model="workerEditing.job.recipe" style="width: 13em;">
-                <option v-for="outputs, recipe in gameStore.craftOutputs" :value="recipe">
+              <select v-model="workerEditing.job.recipe" style="width: 13em">
+                <option
+                  v-for="(outputs, recipe) in gameStore.craftOutputs"
+                  :value="recipe"
+                >
                   {{ gameStore.uloc.recipe[recipe] }}
                 </option>
               </select>
 
-              <WorkerJobDescription :w="workerEditing"/>
+              <WorkerJobDescription :w="workerEditing" />
               /
               {{ userStore.userWorkshops[workerEditing.job.hk].manualWorkload }}
 
-              <abbr class="tooltip" title="see Settings > 🏭Workshops">ℹ</abbr>
+              <abbr class="tooltip" :title="$t('see Settings > 🏭Workshops')"
+                >ℹ</abbr
+              >
 
               <span class="fsxs">
-                [type: {{ userStore.userWorkshops[workerEditing.job.hk].industry }}]
+                {{ $t('[type:') }}
+                {{
+                  $t(
+                    gameStore.industries[
+                      userStore.userWorkshops[workerEditing.job.hk].industry
+                    ] || userStore.userWorkshops[workerEditing.job.hk].industry
+                  )
+                }}]
               </span>
-
             </template>
 
             <template v-else-if="gameStore.jobIsCustom(workerEditing.job)">
               ✍️
-              <input class="workshop-label-input" v-model="workerEditing.job.label"/>
+              <input
+                class="workshop-label-input"
+                v-model="workerEditing.job.label"
+              />
               @
-              <input type="number" class="float4" step="0.1" v-model.number="workerEditing.job.profit"/>M$/day
-              <input type="number" class="float4" v-model.number="workerEditing.job.cp"/>CP
+              <input
+                type="number"
+                class="float4"
+                step="0.1"
+                v-model.number="workerEditing.job.profit"
+              />{{ $t('M$/day') }}
+              <input
+                type="number"
+                class="float4"
+                v-model.number="workerEditing.job.cp"
+              />{{ $t('CP') }}
             </template>
 
-            <template v-else>
-              UNKNOWN_JOBTYPE
-            </template>
-            
+            <template v-else> {{ $t('UNKNOWN_JOBTYPE') }} </template>
           </td>
         </tr>
 
-        <tr v-if="workerEditing.job && gameStore.jobIsPz(workerEditing.job) || gameStore.jobIsWorkshop(workerEditing.job)">
-          <td>cycle:</td>
+        <tr
+          v-if="
+            (workerEditing.job && gameStore.jobIsPz(workerEditing.job)) ||
+            gameStore.jobIsWorkshop(workerEditing.job)
+          "
+        >
+          <td>{{ $t('cycle:') }}</td>
           <td>
-            {{ formatFixed(24*60 / initialProfit.cyclesDaily, 1) }} 
+            {{ formatFixed((24 * 60) / initialProfit.cyclesDaily, 1) }}
             <span v-if="newProfit.cyclesDaily != initialProfit.cyclesDaily">
-              → {{ formatFixed(24*60 / newProfit.cyclesDaily, 1) }}
+              → {{ formatFixed((24 * 60) / newProfit.cyclesDaily, 1) }}
             </span>
-            minutes
+            {{ $t('minutes') }}
           </td>
         </tr>
 
         <tr v-if="workerEditing.job">
-          <td>$/day:</td>
+          <td>{{ $t('$/day:') }}</td>
           <td>
-            <template v-if="gameStore.jobIsPz(workerEditing.job) || gameStore.jobIsWorkshop(workerEditing.job)">
-              {{ spaceSep(initialProfit.priceDaily) }} 
+            <template
+              v-if="
+                gameStore.jobIsPz(workerEditing.job) ||
+                gameStore.jobIsWorkshop(workerEditing.job)
+              "
+            >
+              {{ spaceSep(initialProfit.priceDaily) }}
               <span v-if="newProfit.priceDaily != initialProfit.priceDaily">
-                → {{ spaceSep(newProfit.priceDaily) }} 
-                <span :class="{ greenText: newProfit.priceDaily > initialProfit.priceDaily, redText: newProfit.priceDaily < initialProfit.priceDaily, fsxs: 1 }">
-                  {{ formatFixed(100 * (newProfit.priceDaily - initialProfit.priceDaily) / initialProfit.priceDaily, 2, true) }}%
+                → {{ spaceSep(newProfit.priceDaily) }}
+                <span
+                  :class="{
+                    greenText: newProfit.priceDaily > initialProfit.priceDaily,
+                    redText: newProfit.priceDaily < initialProfit.priceDaily,
+                    fsxs: 1,
+                  }"
+                >
+                  {{
+                    formatFixed(
+                      (100 *
+                        (newProfit.priceDaily - initialProfit.priceDaily)) /
+                        initialProfit.priceDaily,
+                      2,
+                      true
+                    )
+                  }}%
                 </span>
               </span>
             </template>
@@ -476,105 +572,216 @@ export default {
             </template>
           </td>
         </tr>
-      
-        <tr><td colspan="2">
-          <table class="borderless" v-if="gameStore.ready">
-            <tr>
-              <th>stats:</th>
-              <th class="fsxs">rank</th>
-              <th>sheet</th>
-              <th>+</th>
-              <th>skill</th>
-              <th>=</th>
-              <th>final</th>
-              <th></th>
-            </tr>
-            <tr class="center">
-              <td rowspan="3">
-                <button @click="setStatsMedian()" class="fsxxs">median</button><br/>
-                <button @click="setStatsRandom()" class="fsxxs">random</button>
-              </td>
-              <td class="fsxs">
-                {{ formatFixed(statRank.wspd_rank*100, 1) }}%
-              </td>
-              <td><input type="number" v-model="workerEditing.wspdSheet" step="0.01" class="w5em right"/></td>
-              <td></td>
-              <td>{{ formatFixed(currentWspdBonus, 2) }}</td>
-              <td></td>
-              <td>{{ formatFixed(workerEditing.wspdSheet + currentWspdBonus, 2) }}</td>
-              <td>🔨</td>
-            </tr>
-            <tr class="center">
-              <td class="fsxs">
-                {{ formatFixed(statRank.mspd_rank*100, 1) }}%
-              </td>
-              <td><input type="number" v-model="workerEditing.mspdSheet" step="0.01" class="w5em right"/></td>
-              <td></td>
-              <td>{{ formatFixed(gameStore.mspdBonus(workerEditing), 1) }}%</td>
-              <td></td>
-              <td>{{ formatFixed(gameStore.workerStatic[workerEditing.charkey].mspd/100 * ((workerEditing.mspdSheet / (gameStore.workerStatic[workerEditing.charkey].mspd/100)) + gameStore.mspdBonus(workerEditing) / 100), 2) }}</td>
-              <td>🦶</td>
-            </tr>
-            <tr class="center">
-              <td class="fsxs">
-                {{ formatFixed(statRank.luck_rank*100, 1) }}%
-              </td>
-              <td><input type="number" v-model="workerEditing.luckSheet" step="0.01" class="w5em right"/></td>
-              <td></td>
-              <td>{{ formatFixed(gameStore.luckBonus(workerEditing), 2) }}</td>
-              <td></td>
-              <td>{{ formatFixed(workerEditing.luckSheet + gameStore.luckBonus(workerEditing), 2) }}</td>
-              <td>🍀</td>
-            </tr>
-          </table>
-        </td></tr>
+
+        <tr>
+          <td colspan="2">
+            <table class="borderless" v-if="gameStore.ready">
+              <tr>
+                <th>{{ $t('stats:') }}</th>
+                <th class="fsxs">{{ $t('rank') }}</th>
+                <th>{{ $t('sheet') }}</th>
+                <th>+</th>
+                <th>{{ $t('skill') }}</th>
+                <th>=</th>
+                <th>{{ $t('final') }}</th>
+                <th></th>
+              </tr>
+              <tr class="center">
+                <td rowspan="3">
+                  <button @click="setStatsMedian()" class="fsxxs">
+                    {{ $t('median') }}</button
+                  ><br />
+                  <button @click="setStatsRandom()" class="fsxxs">
+                    {{ $t('random') }}
+                  </button>
+                </td>
+                <td class="fsxs">
+                  {{ formatFixed(statRank.wspd_rank * 100, 1) }}%
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    v-model="workerEditing.wspdSheet"
+                    step="0.01"
+                    class="w5em right"
+                  />
+                </td>
+                <td></td>
+                <td>{{ formatFixed(currentWspdBonus, 2) }}</td>
+                <td></td>
+                <td>
+                  {{
+                    formatFixed(workerEditing.wspdSheet + currentWspdBonus, 2)
+                  }}
+                </td>
+                <td>🔨</td>
+              </tr>
+              <tr class="center">
+                <td class="fsxs">
+                  {{ formatFixed(statRank.mspd_rank * 100, 1) }}%
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    v-model="workerEditing.mspdSheet"
+                    step="0.01"
+                    class="w5em right"
+                  />
+                </td>
+                <td></td>
+                <td>
+                  {{ formatFixed(gameStore.mspdBonus(workerEditing), 1) }}%
+                </td>
+                <td></td>
+                <td>
+                  {{
+                    formatFixed(
+                      (gameStore.workerStatic[workerEditing.charkey].mspd /
+                        100) *
+                        (workerEditing.mspdSheet /
+                          (gameStore.workerStatic[workerEditing.charkey].mspd /
+                            100) +
+                          gameStore.mspdBonus(workerEditing) / 100),
+                      2
+                    )
+                  }}
+                </td>
+                <td>🦶</td>
+              </tr>
+              <tr class="center">
+                <td class="fsxs">
+                  {{ formatFixed(statRank.luck_rank * 100, 1) }}%
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    v-model="workerEditing.luckSheet"
+                    step="0.01"
+                    class="w5em right"
+                  />
+                </td>
+                <td></td>
+                <td>
+                  {{ formatFixed(gameStore.luckBonus(workerEditing), 2) }}
+                </td>
+                <td></td>
+                <td>
+                  {{
+                    formatFixed(
+                      workerEditing.luckSheet +
+                        gameStore.luckBonus(workerEditing),
+                      2
+                    )
+                  }}
+                </td>
+                <td>🍀</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
         <tr class="center">
-          <td>skills:</td>
+          <td>{{ $t('skills:') }}</td>
           <td>
-            <div style="float:right;">
+            <div style="float: right">
               <button @click="workerEditing.skills = []">
-                clear
+                {{ $t('clear') }}
               </button>
-              {{  }}
-              <button :disabled="!(workerEditing.job && workerEditing.job.pzk in this.routingStore.pzJobs)" @click="suggestBestSkills(workerEditing.level, true)">
-                optimize
+              {{}}
+              <button
+                :disabled="
+                  !(
+                    workerEditing.job &&
+                    workerEditing.job.pzk in this.routingStore.pzJobs
+                  )
+                "
+                @click="suggestBestSkills(workerEditing.level, true)"
+              >
+                {{ $t('optimize') }}
               </button>
             </div>
           </td>
         </tr>
-      
+
         <tr v-for="n in 9">
           <td colspan="2" s>
-            <select 
-              :id="'skill'+(n-1)"
-              v-model="workerEditing.skills[n-1]"
+            <select
+              :id="'skill' + (n - 1)"
+              v-model="workerEditing.skills[n - 1]"
               class="w30em animable"
-              style="width:30em;"
+              style="width: 30em"
             >
-              <option v-for="sk in gameStore.availableSkillPool(workerEditing.skills, workerEditing.skills[n-1])" :value="sk">
-                {{ gameStore.uloc.skill[sk] + " / " + gameStore.uloc.skilldesc[sk] }}
+              <option
+                v-for="sk in gameStore.availableSkillPool(
+                  workerEditing.skills,
+                  workerEditing.skills[n - 1]
+                )"
+                :value="sk"
+              >
+                {{
+                  gameStore.uloc.skill[sk] +
+                  ' / ' +
+                  gameStore.uloc.skilldesc[sk]
+                }}
               </option>
-            </select> 
-            <img v-if="prerelease_skillicon" :src="resourceUrl(`data/icons/skill/${workerEditing.skills[n-1]}.png`)" width="22" height="22" loading="lazy"/>
+            </select>
+            <img
+              v-if="prerelease_skillicon"
+              :src="
+                resourceUrl(
+                  `data/icons/skill/${workerEditing.skills[n - 1]}.png`
+                )
+              "
+              width="22"
+              height="22"
+              loading="lazy"
+            />
           </td>
         </tr>
       </table>
-      
-      <template v-if="gameStore.ready && workerEditing.job && gameStore.jobIsPz(workerEditing.job) && workerEditing.job.pzk in gameStore.plantzones && gameStore.plantzones[workerEditing.job.pzk].regiongroup && userStore.allowFloating">
-        <input type="checkbox" v-model="userStore.useFloatingResources[gameStore.plantzones[workerEditing.job.pzk].regiongroup]">
-        use floating resource for this regionGroup
+
+      <template
+        v-if="
+          gameStore.ready &&
+          workerEditing.job &&
+          gameStore.jobIsPz(workerEditing.job) &&
+          workerEditing.job.pzk in gameStore.plantzones &&
+          gameStore.plantzones[workerEditing.job.pzk].regiongroup &&
+          userStore.allowFloating
+        "
+      >
+        <input
+          type="checkbox"
+          v-model="
+            userStore.useFloatingResources[
+              gameStore.plantzones[workerEditing.job.pzk].regiongroup
+            ]
+          "
+        />
+        {{ $t('use floating resource for this regionGroup') }}
       </template>
     </div>
 
-    <div id="chartPane" v-if="showChartPane && gameStore.ready && workerEditing.job && workerEditing.job.pzk && workerEditing.job.pzk in gameStore.plantzones && gameStore.plantzones[workerEditing.job.pzk].regiongroup && userStore.useFloatingResources[gameStore.plantzones[workerEditing.job.pzk].regiongroup]">
-      <FloatingResourceEdit 
+    <div
+      id="chartPane"
+      v-if="
+        showChartPane &&
+        gameStore.ready &&
+        workerEditing.job &&
+        workerEditing.job.pzk &&
+        workerEditing.job.pzk in gameStore.plantzones &&
+        gameStore.plantzones[workerEditing.job.pzk].regiongroup &&
+        userStore.useFloatingResources[
+          gameStore.plantzones[workerEditing.job.pzk].regiongroup
+        ]
+      "
+    >
+      <FloatingResourceEdit
         :rgk="gameStore.plantzones[workerEditing.job.pzk].regiongroup"
         :wspd="workerEditing.wspdSheet + currentWspdBonus"
         :workload="gameStore.plantzones[workerEditing.job.pzk].workload"
         :show="true"
       />
-    </div> 
-
+    </div>
   </div>
 </template>
 

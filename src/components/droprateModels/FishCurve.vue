@@ -108,25 +108,31 @@ export default {
 </script>
 
 <template>
-  
   <td>
-    <input type="range" v-model="me.amount" :disabled="isLast" class="vmid" :min="0" :max="1" :step="0.01"> 
-    {{ formatFixed(me.amount*100, 1) }}%
+    <input
+      type="range"
+      v-model="me.amount"
+      :disabled="isLast"
+      class="vmid"
+      :min="0"
+      :max="1"
+      :step="0.01"
+    />
+    {{ formatFixed(me.amount * 100, 1) }}%
   </td>
   <td>
     <select :value="me.kind" @change="morph($event)">
-      <option>Normal</option>
-      <option>Triangular</option>
-      <option>Uniform</option>
-      <option>Gamma</option>
-      <option>Lognormal</option>
+      <option value="Normal">{{ $t('Normal') }}</option>
+      <option value="Triangular">{{ $t('Triangular') }}</option>
+      <option value="Uniform">{{ $t('Uniform') }}</option>
+      <option value="Gamma">{{ $t('Gamma') }}</option>
+      <option value="Lognormal">{{ $t('Lognormal') }}</option>
     </select>
   </td>
   <component :is="componentName" v-model:me="me" />
   <td>
-    <button @click="$emit('delete')">delete</button>
+    <button @click="$emit('delete')">{{ $t('delete') }}</button>
   </td>
-
 </template>
 
 <style scoped>

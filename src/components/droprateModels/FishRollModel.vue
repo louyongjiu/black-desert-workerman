@@ -189,7 +189,7 @@ export default {
             : this.avg_size * 3,
         },
         yAxis: {
-          name: '% of total',
+          name: this.$t("% of total"),
           nameGap: 11,
           axisLine: { onZero: false },
           axisLabel: {
@@ -205,12 +205,12 @@ export default {
         },
         series: [
           {
-            name: 'observed',
+            name: this.$t("observed"),
             type: 'bar',
             encode: { x: 0, y: 1 },
           },
           {
-            name: 'model',
+            name: this.$t("model"),
             type: 'line',
             datasetIndex: 1,
             encode: { x: 0, y: 1 },
@@ -292,7 +292,7 @@ export default {
 <template>
   <div class="controls">
     <label>
-      rolls
+      {{ $t('rolls') }}
       <select v-model.number="rollCount">
         <option :value="1">1</option>
         <option :value="2">2</option>
@@ -304,18 +304,27 @@ export default {
     </label>
 
     <label>
-      offset
-      <input type="number" class="w5em" v-model.number="offset" min="0" step="0.1">
+      {{ $t('offset') }}
+      <input
+        type="number"
+        class="w5em"
+        v-model.number="offset"
+        min="0"
+        step="0.1"
+      />
     </label>
 
     <label class="square-control">
-      <input type="checkbox" v-model="square">
-      square
+      <input type="checkbox" v-model="square" /> {{ $t('square') }}
     </label>
   </div>
 
   <div class="chart">
-    <v-chart :option="chartOption" :update-options="{ notMerge: false }" autoresize />
+    <v-chart
+      :option="chartOption"
+      :update-options="{ notMerge: false }"
+      autoresize
+    />
   </div>
 
   <pre><code>{{ codeSnippet }}</code></pre>

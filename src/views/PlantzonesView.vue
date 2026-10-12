@@ -156,80 +156,107 @@ export default {
   <main>
     <div id="toptext">
       <p>
-        Profits here are calculated using average level 40 stats for artisan workers 
-        at corresponding town (papu/dokkebi/etc), with only one skill (+5🔨). 
-        Home page has more tiers, levels, and skills.
+        {{
+          $t(
+            'Profits here are calculated using average level 40 stats for artisan workers at corresponding town (papu/dokkebi/etc), with only one skill (+5🔨). Home page has more tiers, levels, and skills.'
+          )
+        }}
       </p>
       <p>
-        Note that CP costs shown here are independent for each node. In practice however,
-        multiple resource nodes can reuse the same town connection, resulting in higher combined $/CP.
+        {{
+          $t(
+            'Note that CP costs shown here are independent for each node. In practice however, multiple resource nodes can reuse the same town connection, resulting in higher combined $/CP.'
+          )
+        }}
       </p>
       <p>
-        For example, taking both Shakatu Fig nodes should not be 3+3 but 3+1 CP. 
-        Use Home page instead of Plantzones to take into account connection reuse (and also lodging/storage costs).
+        {{
+          $t(
+            'For example, taking both Shakatu Fig nodes should not be 3+3 but 3+1 CP. Use Home page instead of Plantzones to take into account connection reuse (and also lodging/storage costs).'
+          )
+        }}
       </p>
       <p>
-        Don't forget to set up your server and prices on Settings page and maybe take a look at Resources as well.
-        👺=goblin, 👨=human, 🐢=giant, hover for more info
+        {{
+          $t(
+            "Don't forget to set up your server and prices on Settings page and maybe take a look at Resources as well. 👺=goblin, 👨=human, 🐢=giant, hover for more info"
+          )
+        }}
       </p>
-      Only show entries with best town = 
+      {{ $t('Only show entries with best town =') }}
       <select v-model="filterTown">
-        <option v-for="tnk in townsFilter" :value="tnk">{{ tnk>=0 ? gameStore.nodeName(tnk) : 'any'}}</option>
+        <option v-for="tnk in townsFilter" :value="tnk">
+          {{ tnk >= 0 ? gameStore.nodeName(tnk) : $t('any') }}
+        </option>
       </select>
-      hide taken <input type="checkbox" v-model="hideTaken">
+      {{ $t('hide taken') }} <input type="checkbox" v-model="hideTaken" />
     </div>
 
     <div class="scroll">
       <table class="stickyhead">
         <thead>
           <tr>
-            <th rowspan="2">Node</th>
-            <th colspan="3">cycle drops <span class="fss">[<input type="checkbox" v-model="showGiantValues"> as giant]</span></th>
-            <th colspan="3">best town</th>
-            <th colspan="2">best worker</th>
-            <th rowspan="2">workload</th>
-            <th colspan="3">daily</th>
+            <th rowspan="2">{{ $t('Node') }}</th>
+            <th colspan="3">
+              {{ $t('cycle drops') }}
+              <span class="fss"
+                >[<input type="checkbox" v-model="showGiantValues" />
+                {{ $t('as giant]') }}</span
+              >
+            </th>
+            <th colspan="3">{{ $t('best town') }}</th>
+            <th colspan="2">{{ $t('best worker') }}</th>
+            <th rowspan="2">{{ $t('workload') }}</th>
+            <th colspan="3">{{ $t('daily') }}</th>
             <th rowspan="2" v-if="userStore.workedPlantzones.size">
-              <abbr class="tooltip nound" title="assigned on Home page?
-  (hover for details)
-  'X% better' does not consider:
-  - worker stats
-  - worker skills
-  - connection reuse
-  - lodging and storage">🏠</abbr>
+              <abbr
+                class="tooltip nound"
+                :title="
+                  $t(
+                    'assigned on Home page?\n  (hover for details)\n  \'X% better\' does not consider:\n  - worker stats\n  - worker skills\n  - connection reuse\n  - lodging and storage'
+                  )
+                "
+                >🏠</abbr
+              >
             </th>
           </tr>
           <tr>
             <!--Node-->
-            <th class="rowspanned colspanned">unlucky</th>
+            <th class="rowspanned colspanned">{{ $t('unlucky') }}</th>
             <th class="colspanned">
-              lucky
-              <abbr title="you always get unlucky items;
-  these are ADDITIONAL, with
-    chance equal to luck stat" class="tooltip">ℹ</abbr>
+              {{ $t('lucky') }}
+              <abbr
+                :title="
+                  $t(
+                    'you always get unlucky items;\n  these are ADDITIONAL, with\n    chance equal to luck stat'
+                  )
+                "
+                class="tooltip"
+                >ℹ</abbr
+              >
             </th>
-            <th class="colspanned">$ value</th>
-            <th class="colspanned">name</th>
-            <th class="colspanned">walk</th>
-            <th class="colspanned">CP</th>
-            <th class="colspanned">type</th>
-            <th class="colspanned">wspd</th>
-            <th class="colspanned">cycles</th>
-            <th class="colspanned">M$</th>
-            <th class="colspanned">M$/CP</th>
+            <th class="colspanned">{{ $t('$ value') }}</th>
+            <th class="colspanned">{{ $t('name') }}</th>
+            <th class="colspanned">{{ $t('walk') }}</th>
+            <th class="colspanned">{{ $t('CP') }}</th>
+            <th class="colspanned">{{ $t('type') }}</th>
+            <th class="colspanned">{{ $t('wspd') }}</th>
+            <th class="colspanned">{{ $t('cycles') }}</th>
+            <th class="colspanned">{{ $t('M$') }}</th>
+            <th class="colspanned">{{ $t('M$/CP') }}</th>
             <!--taken-->
           </tr>
         </thead>
         <tbody>
-          <PlantzonesRow 
-            v-for="e in allPlantzonesNearestCpTownProfit_sorted" :id="'drops'+e.key"
+          <PlantzonesRow
+            v-for="e in allPlantzonesNearestCpTownProfit_sorted"
+            :id="'drops' + e.key"
             :e="e"
             :showGiantValues="showGiantValues"
           />
         </tbody>
       </table>
     </div>
-
   </main>
 </template>
 

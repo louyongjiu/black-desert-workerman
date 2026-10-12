@@ -240,67 +240,112 @@ export default {
   <main>
     <div class="limit">
       <div id="controls">
-        <p>data from <a href="https://github.com/Thell/bdo-housecraft">Thell/bdo-housecraft</a></p>
+        <p>
+          {{ $t('data from') }}
+          <a href="https://github.com/Thell/bdo-housecraft"
+            >Thell/bdo-housecraft</a
+          >
+        </p>
 
         <div id="fluid">
           <div id="sliders">
             <table v-if="this.gameStore.ready">
-              <tr><th></th><th>wanted</th><th>found</th><th>cost</th><th>per CP</th></tr>
               <tr>
-                <th class="lodging">lodging </th>
-                <th><input 
-                  type="range"
-                  class="wlong"
-                  v-model.number="wantLodging" 
-                  min="0"
-                  :max="Math.min((gameStore.ready ? gameStore.townUpperLimits[tk].lodging : 999), 100)"
-                >{{ wantLodging }}</th>
-                <th>{{ bestLookup ? bestLookup.lodging : '?' }}</th>
-                <th>{{ lodgingCost }} CP</th>
-                <th>{{ bestLookup ? formatFixed(bestLookup.lodging / lodgingCost, 3) : '?' }}</th>
+                <th></th>
+                <th>{{ $t('wanted') }}</th>
+                <th>{{ $t('found') }}</th>
+                <th>{{ $t('cost') }}</th>
+                <th>{{ $t('per CP') }}</th>
               </tr>
               <tr>
-                <th class="storage">storage</th>
-                <th><input 
-                  type="range"
-                  class="wlong"
-                  v-model.number="wantStorage" 
-                  min="0"
-                  :max="Math.min((gameStore.ready ? gameStore.townUpperLimits[tk].storage : 999), 192-8)"
-                >{{ wantStorage }}</th>
+                <th class="lodging">{{ $t('lodging') }}</th>
+                <th>
+                  <input
+                    type="range"
+                    class="wlong"
+                    v-model.number="wantLodging"
+                    min="0"
+                    :max="
+                      Math.min(
+                        gameStore.ready
+                          ? gameStore.townUpperLimits[tk].lodging
+                          : 999,
+                        100
+                      )
+                    "
+                  />{{ wantLodging }}
+                </th>
+                <th>{{ bestLookup ? bestLookup.lodging : '?' }}</th>
+                <th>{{ lodgingCost }} {{ $t('CP') }}</th>
+                <th>
+                  {{
+                    bestLookup
+                      ? formatFixed(bestLookup.lodging / lodgingCost, 3)
+                      : '?'
+                  }}
+                </th>
+              </tr>
+              <tr>
+                <th class="storage">{{ $t('storage') }}</th>
+                <th>
+                  <input
+                    type="range"
+                    class="wlong"
+                    v-model.number="wantStorage"
+                    min="0"
+                    :max="
+                      Math.min(
+                        gameStore.ready
+                          ? gameStore.townUpperLimits[tk].storage
+                          : 999,
+                        192 - 8
+                      )
+                    "
+                  />{{ wantStorage }}
+                </th>
                 <th>{{ bestLookup ? bestLookup.storage : '?' }}</th>
-                <th>{{ storageCost }} CP</th>
-                <th>{{ bestLookup ? formatFixed(bestLookup.storage / storageCost, 3) : '?' }}</th>
+                <th>{{ storageCost }} {{ $t('CP') }}</th>
+                <th>
+                  {{
+                    bestLookup
+                      ? formatFixed(bestLookup.storage / storageCost, 3)
+                      : '?'
+                  }}
+                </th>
               </tr>
               <tr>
                 <th colspan="3">
-                  town <select v-model="tk"><option v-for="tk in this.townsWithHouses" :value="tk">{{ gameStore.uloc.town[tk] }}</option></select>
+                  {{ $t('town') }}
+                  <select v-model="tk">
+                    <option v-for="tk in this.townsWithHouses" :value="tk">
+                      {{ gameStore.uloc.town[tk] }}
+                    </option>
+                  </select>
                 </th>
-                <th colspan="2">{{ bestLookup ? bestLookup.cost : '?' }} CP total</th>
+                <th colspan="2">
+                  {{ bestLookup ? bestLookup.cost : '?' }} {{ $t('CP total') }}
+                </th>
               </tr>
             </table>
           </div>
-
-          
         </div>
-
-        
       </div>
 
-      <div style="clear:both;"></div>
+      <div style="clear: both"></div>
       <div id="houselist" v-if="bestLookup">
         <template v-for="e in sortedResult">
-          <p v-if="e.state > 0" :class="{storage: e.state == 1, lodging: e.state == 2}">
+          <p
+            v-if="e.state > 0"
+            :class="{ storage: e.state == 1, lodging: e.state == 2 }"
+          >
             {{ e.name }}
           </p>
         </template>
       </div>
 
       <v-chart class="chart" :option="chartOption" />
-
     </div>
   </main>
-
 </template>
 
 <style scoped>

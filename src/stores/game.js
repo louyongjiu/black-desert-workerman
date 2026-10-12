@@ -1,4 +1,5 @@
 import {defineStore} from "pinia";
+import {localizeGameLanguage} from '../i18n/game.mjs'
 import {useMarketStore} from './market'
 import {useUserStore} from './user'
 import {useRoutingStore} from './routing'
@@ -229,7 +230,7 @@ export const useGameStore = defineStore({
       if (!requests) languageRequests.set(owner, requests = new Map())
       if (!requests.has(language)) {
         const request = fetchJson(`data/loc/${language}.json`).then(data => {
-          this.loc[language] = markRaw(data)
+          this.loc[language] = markRaw(localizeGameLanguage(data, language))
           return data
         }).finally(() => requests.delete(language))
         requests.set(language, request)

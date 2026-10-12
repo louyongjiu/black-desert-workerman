@@ -79,67 +79,79 @@ export default {
 
 <template>
   <template v-if="hk">
-    
-    <div>Nearest idle workers for {{ gameStore.uloc.char[hk] }} {{ workshop.label ? '"'+workshop.label+'"' : '' }} 
-      ({{ workshop.manualWorkload }} workload, {{ workshop.manualCycleIncome }} $/cycle,
-      type: {{ workshop.industry }} 
-      <abbr class="tooltip" title="see Settings > 🏭Workshops">ℹ</abbr>):
-      <template v-if="freeWorkers.length == 0">
-        None
-      </template>
+    <div>
+      {{ $t('Nearest idle workers for') }} {{ gameStore.uloc.char[hk] }}
+      {{ workshop.label ? '"' + workshop.label + '"' : '' }} ({{
+        workshop.manualWorkload
+      }}
+      {{ $t('workload,') }} {{ workshop.manualCycleIncome }}
+      {{ $t('$/cycle, type:') }}
+      {{ $t(gameStore.industries[workshop.industry] || workshop.industry) }}
+      <abbr class="tooltip" :title="$t('see Settings > 🏭Workshops')">ℹ</abbr>):
+      <template v-if="freeWorkers.length == 0"> {{ $t('None') }} </template>
     </div>
-    
 
     <template v-if="freeWorkers.length">
-    <table>
-      <tr>
-        <th>town</th>
-        <th>worker</th>
-        <th>walk</th>
-        <th>cycles/day</th>
-        <th>+M$/day</th>
-        <th>+CP</th>
-        <th>M$/day/CP</th>
-        <th>action</th>
-      </tr>
-      <template v-for="e in freeWorkers">
-        <tr v-if="e.profit.distance < 1E6">
-          <td>{{ gameStore.nodeName(e.tnk) }}</td>
-          <td>
-            {{ e.w.label }}
-            <span class="fsxs">
-              {{ formatFixed(e.profit.statsOnWs.wspd, 2) }}🔨
-              {{ formatFixed(e.profit.statsOnWs.mspd, 2) }}🦶
-              {{ formatFixed(e.profit.statsOnWs.luck, 2) }}🍀
-            </span>
-          </td>
-          <td>{{ formatFixed(e.profit.distance) }}</td>
-          <td>{{ formatFixed(e.profit.cyclesDaily, 1) }}</td>
-          <td class="center">
-            {{ formatFixed(e.profit.priceDaily, 2) }}
-          </td>
-          <td>
-            <abbr class="tooltip" :title="'connection cost:\n'+Array.from(e.path, nk => `${routingStore.routing.autotakenNodes.has(nk) ? 0 : gameStore.nodes[nk].CP} ${gameStore.uloc.node[nk]}`).join('\n')">
-              {{ e.mapCp }}
-            </abbr>+<abbr class="tooltip" title="see Settings > 🏭Workshops">
-              {{ e.houseCp }}
-            </abbr>+<abbr class="tooltip" :title="e.infraTooltip">
-              {{ e.townCp }}
-            </abbr>={{ e.cp }}
-          </td>
-          <td class="center">
-            {{ formatFixed(e.dailyPerCp, 3) }}
-          </td>
-          <td>
-            <button @click="assign(e.w, hk)">
-              assign
-            </button>
-          </td>
+      <table>
+        <tr>
+          <th>{{ $t('town') }}</th>
+          <th>{{ $t('worker') }}</th>
+          <th>{{ $t('walk') }}</th>
+          <th>{{ $t('cycles/day') }}</th>
+          <th>{{ $t('+M$/day') }}</th>
+          <th>{{ $t('+CP') }}</th>
+          <th>{{ $t('M$/day/CP') }}</th>
+          <th>{{ $t('action') }}</th>
         </tr>
-      </template>
-    </table>
-  </template>
-
+        <template v-for="e in freeWorkers">
+          <tr v-if="e.profit.distance < 1e6">
+            <td>{{ gameStore.nodeName(e.tnk) }}</td>
+            <td>
+              {{ e.w.label }}
+              <span class="fsxs">
+                {{ formatFixed(e.profit.statsOnWs.wspd, 2) }}🔨
+                {{ formatFixed(e.profit.statsOnWs.mspd, 2) }}🦶
+                {{ formatFixed(e.profit.statsOnWs.luck, 2) }}🍀
+              </span>
+            </td>
+            <td>{{ formatFixed(e.profit.distance) }}</td>
+            <td>{{ formatFixed(e.profit.cyclesDaily, 1) }}</td>
+            <td class="center">
+              {{ formatFixed(e.profit.priceDaily, 2) }}
+            </td>
+            <td>
+              <abbr
+                class="tooltip"
+                :title="
+                  $t('connection cost:\n') +
+                  Array.from(
+                    e.path,
+                    (nk) =>
+                      `${
+                        routingStore.routing.autotakenNodes.has(nk)
+                          ? 0
+                          : gameStore.nodes[nk].CP
+                      } ${gameStore.uloc.node[nk]}`
+                  ).join('\n')
+                "
+              >
+                {{ e.mapCp }} </abbr
+              >+<abbr class="tooltip" :title="$t('see Settings > 🏭Workshops')">
+                {{ e.houseCp }} </abbr
+              >+<abbr class="tooltip" :title="e.infraTooltip">
+                {{ e.townCp }} </abbr
+              >={{ e.cp }}
+            </td>
+            <td class="center">
+              {{ formatFixed(e.dailyPerCp, 3) }}
+            </td>
+            <td>
+              <button @click="assign(e.w, hk)">{{ $t('assign') }}</button>
+            </td>
+          </tr>
+        </template>
+      </table>
+    </template>
   </template>
 </template>
 

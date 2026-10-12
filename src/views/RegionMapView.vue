@@ -308,24 +308,21 @@ export default {
 </script>
 
 <template>
-  
   <main>
     <div id="canvas-limiter">
       <canvas id="deck-canvas" ref="canvas"></canvas>
-      
+
       <div id="coords">
         x: {{ hoverx }} y: {{ -hovery }}
         <div>
           <input type="radio" id="sr" value="R" v-model="currentLayer" />
-          <label for="sr">Regions</label>
+          <label for="sr">{{ $t('Regions') }}</label>
           <input type="radio" id="srg" value="RG" v-model="currentLayer" />
-          <label for="srg">RegionGroups</label>
+          <label for="srg">{{ $t('RegionGroups') }}</label>
         </div>
       </div>
-      
     </div>
-</main>
-
+  </main>
 </template>
 
 <style scoped>

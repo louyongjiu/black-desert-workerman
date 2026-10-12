@@ -53,9 +53,7 @@ export default {
 </script>
 
 <template>
-  <template v-if="gameStore.jobIsIdle(w.job)">
-    idle
-  </template>
+  <template v-if="gameStore.jobIsIdle(w.job)"> {{ $t('idle') }} </template>
   <template v-else-if="gameStore.jobIsPz(w.job)">
     {{ pz_text(w) }}
   </template>
@@ -66,20 +64,14 @@ export default {
     [{{ gameStore.jobIcon(w.job) }}] {{ w.job.label }}
   </template>
   <template v-else-if="gameStore.jobIsWorkshop(w.job)">
-
-     <template v-if="w.job.recipe && gameStore.craftOutputs[w.job.recipe]">
+    <template v-if="w.job.recipe && gameStore.craftOutputs[w.job.recipe]">
       <template v-for="ik in gameStore.craftOutputs[w.job.recipe]">
-        <ItemIcon :ik="ik"/>
+        <ItemIcon :ik="ik" />
       </template>
     </template>
-    <template v-else>
-      [{{ gameStore.jobIcon(w.job) }}]
-    </template>
+    <template v-else> [{{ gameStore.jobIcon(w.job) }}] </template>
 
     {{ workshop_text(w) }}
-    
   </template>
-  <template v-else>
-    UNKNOWN_JOBTYPE
-  </template>
+  <template v-else> {{ $t('UNKNOWN_JOBTYPE') }} </template>
 </template>

@@ -394,7 +394,7 @@ makeChartBHist() {
     series: [
       {
         type: 'bar',
-        name: 'observed',
+        name: this.$t("observed"),
         datasetIndex: 0,
         encode: {
           x: 0,
@@ -408,7 +408,7 @@ makeChartBHist() {
       
       {
         type: 'line',
-        name: 'model',
+        name: this.$t("model"),
         datasetIndex: 2,
         encode: { 
           x: 0,
@@ -462,7 +462,7 @@ makeChartBHist() {
 
       {
         type: 'custom',
-        name: 'observed-error',
+        name: this.$t("observed-error"),
         datasetIndex: 1,
         encode: {
           x: 0,
@@ -536,35 +536,51 @@ makeChartBHist() {
 </script>
 
 <template>
-  <span class="title">Model B</span>
-  <span>: majority (1-λ) of points are zero, but
-  λ points are from a binomial distribution with such <i>np</i>, that
-  λ<i>np</i> = M</span>
+  <span class="title">{{ $t('Model B') }}</span>
+  <span
+    >{{
+      $t(
+        ': majority (1-λ) of points are zero, but λ points are from a binomial distribution with such'
+      )
+    }}
+    <i>np</i>{{ $t(', that λ') }}<i>np</i> = M</span
+  >
 
   <template v-if="modelB">
-    <p>Sweeping through <i>np</i> values in
-    {{ formatFixed(this.sweep_lo, 2) }}…{{ formatFixed(this.sweep_hi, 2) }}
-    range:</p>
-    
+    <p>
+      {{ $t('Sweeping through') }} <i>np</i> {{ $t('values in') }}
+      {{ formatFixed(this.sweep_lo, 2) }}…{{ formatFixed(this.sweep_hi, 2) }}
+      {{ $t('range:') }}
+    </p>
+
     <div>
-      <div style="float:left;">
+      <div style="float: left">
         <div id="chartSweep" v-if="modelBSweep">
           <v-chart :option="makeChartBSweep" />
         </div>
-        <div style="padding:1em;">
-          <div style="float:left;">
+        <div style="padding: 1em">
+          <div style="float: left">
             <table>
-              <tr><th></th><th>np</th><th>n</th><th>MSE</th><th v-if="0">χ²</th><th>p-val</th></tr>
+              <tr>
+                <th></th>
+                <th>np</th>
+                <th>n</th>
+                <th>MSE</th>
+                <th v-if="0">χ²</th>
+                <th>p-val</th>
+              </tr>
               <tr v-if="modelBSweep.result">
-                <td>Best fit:</td>
+                <td>{{ $t('Best fit:') }}</td>
                 <td>{{ formatFixed(modelBSweep.result.np, 3) }}</td>
                 <td>{{ modelBSweep.result.n }}</td>
                 <td>{{ formatFixed(modelBSweep.result.loss.mse, 2) }}</td>
-                <td v-if="0">{{ formatFixed(modelBSweep.result.loss.chisq, 2) }}</td>
+                <td v-if="0">
+                  {{ formatFixed(modelBSweep.result.loss.chisq, 2) }}
+                </td>
                 <td>{{ formatFixed(modelBSweep.result.loss.pval, 4) }}</td>
               </tr>
               <tr>
-                <td>Manual:</td>
+                <td>{{ $t('Manual:') }}</td>
                 <td>{{ formatFixed(selected_np, 3) }}</td>
                 <td>{{ selected_n }}</td>
                 <td>{{ formatFixed(modelB.loss.mse, 2) }}</td>
@@ -573,43 +589,86 @@ makeChartBHist() {
               </tr>
             </table>
             <p>
-              npᴸ: <input type="range" @input="event => applySelectedNp(Number(event.target.value))" :value="selected_np" :min="stats.min" :max="sweep_hi * 1.5" :step="0.01" class="vmid">
-              nᴸ: <input type="range" @input="event => applySelectedN(Number(event.target.value))" :value="selected_n" :min="1" :max="200" :step="1" class="vmid">
+              npᴸ:
+              <input
+                type="range"
+                @input="(event) => applySelectedNp(Number(event.target.value))"
+                :value="selected_np"
+                :min="stats.min"
+                :max="sweep_hi * 1.5"
+                :step="0.01"
+                class="vmid"
+              />
+              nᴸ:
+              <input
+                type="range"
+                @input="(event) => applySelectedN(Number(event.target.value))"
+                :value="selected_n"
+                :min="1"
+                :max="200"
+                :step="1"
+                class="vmid"
+              />
             </p>
           </div>
-          <div style="clear:both;"></div>
+          <div style="clear: both"></div>
         </div>
       </div>
 
-      <div v-if="modelB.bell" style="float: left;">
+      <div v-if="modelB.bell" style="float: left">
         <div id="chartHisto">
           <v-chart :option="makeChartBHist" />
         </div>
         <div>
-          Bin 0 has 1-λ ≈ {{ formatFixed(stats.unlucky.len) }} samples removed, {{ formatFixed(histogramLuckOnly.arr[0][1]) }} remaining<br/>
-          Depending on actual λ could potentially be {{ formatFixed(histogramLuckOnly.err[0][1]) }}…{{ formatFixed(histogramLuckOnly.err[0][2]) }} remaining
+          {{ $t('Bin 0 has 1-λ ≈') }} {{ formatFixed(stats.unlucky.len) }}
+          {{ $t('samples removed,') }}
+          {{ formatFixed(histogramLuckOnly.arr[0][1]) }} {{ $t('remaining')
+          }}<br />
+          {{ $t('Depending on actual λ could potentially be') }}
+          {{ formatFixed(histogramLuckOnly.err[0][1]) }}…{{
+            formatFixed(histogramLuckOnly.err[0][2])
+          }}
+          {{ $t('remaining') }}
           <p v-if="npRangeForBinary">
-            Corresponding range for <i>np</i>: {{ formatFixed(npRangeForBinary.min, 3) }}…{{ formatFixed(npRangeForBinary.max, 3) }}
+            {{ $t('Corresponding range for') }} <i>np</i>:
+            {{ formatFixed(npRangeForBinary.min, 3) }}…{{
+              formatFixed(npRangeForBinary.max, 3)
+            }}
           </p>
         </div>
       </div>
-      <div v-else>
-        bad parameters
-      </div>
-      
-      <div style="clear:both;"></div>
+      <div v-else>{{ $t('bad parameters') }}</div>
+
+      <div style="clear: both"></div>
     </div>
 
     <div>
-      <p class="fsxs">MSE: <i>Σ (observed - model)²</i>, discard nothing ← this is used for fitting</p>
+      <p class="fsxs">
+        MSE: <i>{{ $t('Σ (observed - model)²') }}</i
+        >{{ $t(', discard nothing ← this is used for fitting') }}
+      </p>
       <template v-if="npRangeForBinary">
-        <p class="fsxs">p-val: <a href="https://en.wikipedia.org/wiki/Binomial_test">exact</a></p>
+        <p class="fsxs">
+          p-val:
+          <a href="https://en.wikipedia.org/wiki/Binomial_test">{{
+            $t('exact')
+          }}</a>
+        </p>
       </template>
       <template v-else>
-        <p class="fsxs">χ²: discard bins where model &lt; 3, then <i>Σ (observed - model)² / model</i></p>
-        <p class="fsxs">p-val: <i>1 - chisquare.cdf(χ², bins - 1 - dof)</i> ← on small datasets this depends too much on previous step discards</p>
+        <p class="fsxs">
+          {{ $t('χ²: discard bins where model < 3, then') }}
+          <i>{{ $t('Σ (observed - model)² / model') }}</i>
+        </p>
+        <p class="fsxs">
+          p-val: <i>1 - chisquare.cdf(χ², bins - 1 - dof)</i>
+          {{
+            $t(
+              '← on small datasets this depends too much on previous step discards'
+            )
+          }}
+        </p>
       </template>
-      
     </div>
   </template>
 </template>

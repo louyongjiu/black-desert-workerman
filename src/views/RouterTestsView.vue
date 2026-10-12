@@ -366,122 +366,165 @@ export default {
 <template>
   <main>
     <div id="content">
-      <input type="checkbox" v-model="retry_until_red"> retry until first fail 
-      up to <input type="number" class="w5em" v-model.number="max_ms">ms
+      <input type="checkbox" v-model="retry_until_red" />
+      {{ $t('retry until first fail up to') }}
+      <input type="number" class="w5em" v-model.number="max_ms" />ms
       <template v-if="retry_until_red">
-        ({{ green_retries }}✔️ ignored)
+        ({{ green_retries }}{{ $t('✔️ ignored)') }}
       </template>
 
       <div class="column-container">
-
         <div class="column">
           <h3>
-            Random town-plantzone pairs
-            <abbr class="tooltip" title="completely random, including on the other side of the map">ℹ</abbr>
+            {{ $t('Random town-plantzone pairs') }}
+            <abbr
+              class="tooltip"
+              :title="
+                $t('completely random, including on the other side of the map')
+              "
+              >ℹ</abbr
+            >
           </h3>
-          Pairs <input 
+          {{ $t('Pairs') }}
+          <input
             type="range"
-            v-model.number="rtp_pair_count" 
+            v-model.number="rtp_pair_count"
             min="1"
             max="80"
-          > {{ rtp_pair_count }}<br/>
-          <button @click="run_rtp">run</button>
+          />
+          {{ rtp_pair_count }}<br />
+          <button @click="run_rtp">{{ $t('run') }}</button>
           <table>
             <thead>
               <tr>
-                <td>old</td>
+                <td>{{ $t('old') }}</td>
                 <td>wasm</td>
                 <td>≥</td>
-                <td>details</td>
+                <td>{{ $t('details') }}</td>
               </tr>
             </thead>
             <tbody>
               <tr v-for="r in rtp_results">
                 <td>
-                  <button @click="mapNodes = r.resultOld.autotakenNodes; updateDeck()">{{ r.resultOld.autotakenNodesCP }}</button>
+                  <button
+                    @click="
+                      mapNodes = r.resultOld.autotakenNodes;
+                      updateDeck();
+                    "
+                  >
+                    {{ r.resultOld.autotakenNodesCP }}
+                  </button>
                 </td>
                 <td>
-                  <button @click="mapNodes = new Set(r.resultWasm.autotakenNodes); updateDeck()">{{ r.resultWasm.autotakenNodesCP }}</button>
+                  <button
+                    @click="
+                      mapNodes = new Set(r.resultWasm.autotakenNodes);
+                      updateDeck();
+                    "
+                  >
+                    {{ r.resultWasm.autotakenNodesCP }}
+                  </button>
                 </td>
                 <td>
-                  {{ r.red ? '❌' : '✔️' }} 
+                  {{ r.red ? '❌' : '✔️' }}
                 </td>
                 <td>
                   <details>
                     <summary>{{ r.testcase.label }}</summary>
                     <pre>{{ r.testcase.str }}</pre>
-                    old {{ [...r.resultOld.autotakenNodes] }}<br/>
+                    {{ $t('old') }} {{ [...r.resultOld.autotakenNodes] }}<br />
                     wasm {{ r.resultWasm.autotakenNodes }}
                   </details>
                 </td>
               </tr>
             </tbody>
-            
           </table>
         </div>
 
         <div class="column">
           <h3>
-            Realistic
-            <abbr class="tooltip" title="plantzones tend to be near hometowns (~sqrt of steps)">ℹ</abbr>
+            {{ $t('Realistic') }}
+            <abbr
+              class="tooltip"
+              :title="
+                $t('plantzones tend to be near hometowns (~sqrt of steps)')
+              "
+              >ℹ</abbr
+            >
           </h3>
-          Pairs <input 
+          {{ $t('Pairs') }}
+          <input
             type="range"
-            v-model.number="real_pair_count" 
+            v-model.number="real_pair_count"
             min="1"
             max="80"
-          > {{ real_pair_count }}<br/>
-          Steps <input 
-            type="range"
-            v-model.number="real_steps" 
-            min="1"
-            max="80"
-          > {{ real_steps }}<br/>
-          <button @click="run_real">run</button>
+          />
+          {{ real_pair_count }}<br />
+          {{ $t('Steps') }}
+          <input type="range" v-model.number="real_steps" min="1" max="80" />
+          {{ real_steps }}<br />
+          <button @click="run_real">{{ $t('run') }}</button>
           <table>
             <thead>
               <tr>
-                <td>old</td>
+                <td>{{ $t('old') }}</td>
                 <td>wasm</td>
                 <td>≥</td>
-                <td>details</td>
+                <td>{{ $t('details') }}</td>
               </tr>
             </thead>
             <tbody>
               <tr v-for="r in real_results">
                 <td>
-                  <button @click="mapNodes = r.resultOld.autotakenNodes; updateDeck()">{{ r.resultOld.autotakenNodesCP }}</button>
+                  <button
+                    @click="
+                      mapNodes = r.resultOld.autotakenNodes;
+                      updateDeck();
+                    "
+                  >
+                    {{ r.resultOld.autotakenNodesCP }}
+                  </button>
                 </td>
                 <td>
-                  <button @click="mapNodes = new Set(r.resultWasm.autotakenNodes); updateDeck()">{{ r.resultWasm.autotakenNodesCP }}</button>
+                  <button
+                    @click="
+                      mapNodes = new Set(r.resultWasm.autotakenNodes);
+                      updateDeck();
+                    "
+                  >
+                    {{ r.resultWasm.autotakenNodesCP }}
+                  </button>
                 </td>
                 <td>
-                  {{ r.red ? '❌' : '✔️' }} 
+                  {{ r.red ? '❌' : '✔️' }}
                 </td>
                 <td>
                   <details>
                     <summary>{{ r.testcase.label }}</summary>
                     <pre>{{ r.testcase.str }}</pre>
-                    old {{ [...r.resultOld.autotakenNodes] }}
-                    wasm {{ r.resultWasm.autotakenNodes }}
+                    {{ $t('old') }} {{ [...r.resultOld.autotakenNodes] }} wasm
+                    {{ r.resultWasm.autotakenNodes }}
                   </details>
                 </td>
               </tr>
             </tbody>
-            
           </table>
         </div>
-
       </div>
     </div>
 
     <div id="map">
       <canvas id="deck-canvas" ref="canvas"></canvas>
-      <div v-if="hoverInfo && hoverInfo.object" id="tooltip" :style="{left:hoverInfo.x+'px', top:hoverInfo.y+'px'}">
-        {{ hoverInfo.object.key }} {{ gameStore.uloc.node[hoverInfo.object.key] }} {{ hoverInfo.object.thisCpCost }}CP
+      <div
+        v-if="hoverInfo && hoverInfo.object"
+        id="tooltip"
+        :style="{ left: hoverInfo.x + 'px', top: hoverInfo.y + 'px' }"
+      >
+        {{ hoverInfo.object.key }}
+        {{ gameStore.uloc.node[hoverInfo.object.key] }}
+        {{ hoverInfo.object.thisCpCost }}{{ $t('CP') }}
       </div>
     </div>
-
   </main>
 </template>
 

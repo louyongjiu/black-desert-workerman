@@ -87,100 +87,195 @@ export default {
 
 <template>
   <div>
-    <RouterLink tag="a" :to="{path: './plantzones', hash: '#drops' + pzk}">
-      {{ gameStore.plantzoneName(pzk) }} 
+    <RouterLink tag="a" :to="{ path: './plantzones', hash: '#drops' + pzk }">
+      {{ gameStore.plantzoneName(pzk) }}
     </RouterLink>
-    
-    {{ this.gameStore.nodes[pzk].CP }}CP
 
+    {{ this.gameStore.nodes[pzk].CP }}{{ $t('CP') }}
     <span v-if="pzk in this.gameStore.plantzones">
-      <RouterLink v-for="k in this.gameStore.plantzones[pzk].itemkeys" tag="a" :to="{path: './settings', hash: '#item' + k}">
-        <abbr :title="gameStore.itemName(k) + ' ' + formatFixed(marketStore.prices[k]) + '$'">
-          <ItemIcon :ik="Number(k)"/>
+      <RouterLink
+        v-for="k in this.gameStore.plantzones[pzk].itemkeys"
+        tag="a"
+        :to="{ path: './settings', hash: '#item' + k }"
+      >
+        <abbr
+          :title="
+            gameStore.itemName(k) +
+            ' ' +
+            formatFixed(marketStore.prices[k]) +
+            '$'
+          "
+        >
+          <ItemIcon :ik="Number(k)" />
         </abbr>
       </RouterLink>
-      
-      [🍀{{ formatFixed(this.gameStore.plantzones[pzk].lucky ? this.gameStore.plantzones[pzk].luckyValue / this.gameStore.plantzones[pzk].unluckyValue : 1, 2) }}<abbr class="tooltip" title="how much more $ a lucky cycle brings vs unlucky">x</abbr>]
+
+      [🍀{{
+        formatFixed(
+          this.gameStore.plantzones[pzk].lucky
+            ? this.gameStore.plantzones[pzk].luckyValue /
+                this.gameStore.plantzones[pzk].unluckyValue
+            : 1,
+          2
+        )
+      }}<abbr
+        class="tooltip"
+        :title="$t('how much more $ a lucky cycle brings vs unlucky')"
+        >{{ $t('x') }}</abbr
+      >]
     </span>
   </div>
 
   <div>
-    workload:
-    <template v-if="gameStore.ready && gameStore.plantzones[pzk].regiongroup && userStore.allowFloating && userStore.useFloatingResources[gameStore.plantzones[pzk].regiongroup]">
+    {{ $t('workload:') }}
+    <template
+      v-if="
+        gameStore.ready &&
+        gameStore.plantzones[pzk].regiongroup &&
+        userStore.allowFloating &&
+        userStore.useFloatingResources[gameStore.plantzones[pzk].regiongroup]
+      "
+    >
       ~{{ formatFixed(userStore.medianWorkloads[pzk], 2) }}
-      <button @click="$emit('showResourceDialog', pzk)">review</button><!--📝-->
+      <button @click="$emit('showResourceDialog', pzk)">
+        {{ $t('review') }}</button
+      ><!--📝-->
     </template>
     <template v-else>
       {{ formatFixed(gameStore.plantzones[pzk].activeWorkload, 2) }}
-      ← <input type="number" v-model.number="userStore.regionResources[gameStore.plantzones[pzk].regiongroup]" min="0" max="100" step="0.1" class="w42em" />% resource
+      ←
+      <input
+        type="number"
+        v-model.number="
+          userStore.regionResources[gameStore.plantzones[pzk].regiongroup]
+        "
+        min="0"
+        max="100"
+        step="0.1"
+        class="w42em"
+      />{{ $t('% resource') }}
     </template>
   </div>
 
   <div id="plantzoneWorkerInfo">
     <template v-if="userStore.workedPlantzones.has(pzk.toString())">
-      worker: 
-      {{ this.routingStore.pzJobs[pzk].worker.label }}
+      {{ $t('worker:') }} {{ this.routingStore.pzJobs[pzk].worker.label }}
       @
-      {{ formatFixed(this.routingStore.pzJobs[pzk].profit.priceDaily, 3) }} M$/day
+      {{ formatFixed(this.routingStore.pzJobs[pzk].profit.priceDaily, 3) }}
+      {{ $t('M$/day') }}
       <template v-if="userStore.workedPlantzones.has(pzk.toString())">
-        <button @click="$emit('editWorker', this.routingStore.pzJobs[pzk].worker)">
-          edit
+        <button
+          @click="$emit('editWorker', this.routingStore.pzJobs[pzk].worker)"
+        >
+          {{ $t('edit') }}
         </button>
         <button @click="this.routingStore.pzJobs[pzk].worker.job = null">
-          stop
+          {{ $t('stop') }}
         </button>
       </template>
 
-      <br/>
-      connection cost: 
-      {{ formatFixed(this.routingStore.pzjobsSharedConnectionCP[pzk].value, 3) }} CP 
-      <abbr class="tooltip" :title="'full cost of this node + Σ of connection nodes costs shared proportionally between all active jobs using them\n'+this.routingStore.pzjobsSharedConnectionCP[pzk].tooltip">ℹ</abbr>
-      <br/>
-      lodgage cost: 
-      {{ formatFixed(userStore.workerSharedLodgageCP(this.routingStore.pzJobs[pzk].worker).value, 3) }} CP 
-      <abbr class="tooltip" :title="userStore.workerSharedLodgageCP(this.routingStore.pzJobs[pzk].worker).tooltip">ℹ</abbr>
-      <br/>
-      efficiency: {{ formatFixed(userStore.workerIncomePerCp(this.routingStore.pzJobs[pzk].worker), 3) }} M$/day/CP
-      <abbr class="tooltip" title="income / (connectionCost + lodgageCost)">ℹ</abbr>
-
+      <br />
+      {{ $t('connection cost:') }}
+      {{
+        formatFixed(this.routingStore.pzjobsSharedConnectionCP[pzk].value, 3)
+      }}
+      {{ $t('CP') }}
+      <abbr
+        class="tooltip"
+        :title="
+          $t(
+            'full cost of this node + Σ of connection nodes costs shared proportionally between all active jobs using them\n'
+          ) + this.routingStore.pzjobsSharedConnectionCP[pzk].tooltip
+        "
+        >ℹ</abbr
+      >
+      <br />
+      {{ $t('lodgage cost:') }}
+      {{
+        formatFixed(
+          userStore.workerSharedLodgageCP(this.routingStore.pzJobs[pzk].worker)
+            .value,
+          3
+        )
+      }}
+      {{ $t('CP') }}
+      <abbr
+        class="tooltip"
+        :title="
+          userStore.workerSharedLodgageCP(this.routingStore.pzJobs[pzk].worker)
+            .tooltip
+        "
+        >ℹ</abbr
+      >
+      <br />
+      {{ $t('efficiency:') }}
+      {{
+        formatFixed(
+          userStore.workerIncomePerCp(this.routingStore.pzJobs[pzk].worker),
+          3
+        )
+      }}
+      {{ $t('M$/day/CP') }}
+      <abbr
+        class="tooltip"
+        :title="$t('income / (connectionCost + lodgageCost)')"
+        >ℹ</abbr
+      >
     </template>
 
-    <template v-else>
-      worker: none
-    </template>
+    <template v-else> {{ $t('worker: none') }} </template>
   </div>
 
-
   <div>
-
-
-
     <div class="spaced-columns">
       <div>
-        <h4>Nearest towns with idle workers: <template v-if="freeWorkers.length == 0">None</template></h4>
+        <h4>
+          {{ $t('Nearest towns with idle workers:') }}
+          <template v-if="freeWorkers.length == 0">{{ $t('None') }}</template>
+        </h4>
       </div>
-      <div style="margin-right: 6px;">stash at:
+      <div style="margin-right: 6px">
+        {{ $t('stash at:') }}
         <select v-model="selectedRedirect">
-          <option value="-1">worker hometown</option>
-          <option value="0">cheapest storage 🧊</option>
-          <option v-for="tnk in gameStore.townsWithRedirectableStorage" :value="tnk">
+          <option value="-1">{{ $t('worker hometown') }}</option>
+          <option value="0">{{ $t('cheapest storage 🧊') }}</option>
+          <option
+            v-for="tnk in gameStore.townsWithRedirectableStorage"
+            :value="tnk"
+          >
             {{ gameStore.uloc.node[tnk] }}
           </option>
         </select>
       </div>
     </div>
-    
+
     <div class="vscroll30" v-if="freeWorkers.length > 0">
       <table class="stickyhead">
         <thead>
           <tr>
-            <th>town</th>
-            <th>walk</th>
-            <th>worker <abbr class="tooltip" title="same town&stat workers are hidden in this view">ℹ</abbr></th>
-            <th>+M$/day</th>
-            <th>+CP <abbr class="tooltip" title="node connection + town housing = total">ℹ</abbr></th>
-            <th>M$/day/CP</th>
-            <th>action</th>
+            <th>{{ $t('town') }}</th>
+            <th>{{ $t('walk') }}</th>
+            <th>
+              {{ $t('worker') }}
+              <abbr
+                class="tooltip"
+                :title="
+                  $t('same town&amp;stat workers are hidden in this view')
+                "
+                >ℹ</abbr
+              >
+            </th>
+            <th>{{ $t('+M$/day') }}</th>
+            <th>
+              {{ $t('+CP') }}
+              <abbr
+                class="tooltip"
+                :title="$t('node connection + town housing = total')"
+                >ℹ</abbr
+              >
+            </th>
+            <th>{{ $t('M$/day/CP') }}</th>
+            <th>{{ $t('action') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -200,35 +295,79 @@ export default {
               {{ formatFixed(e.profit.priceDaily, 2) }}
             </td>
             <td>
-              <abbr class="tooltip" :title="Array.from(e.path, nk => `${routingStore.routing.autotakenNodes.has(nk) ? 0 : gameStore.nodes[nk].CP} ${gameStore.uloc.node[nk]}`).join('\n')">
-              {{ e.mapCp }}
-              </abbr>+<abbr class="tooltip" :title="e.infraTooltip">{{ formatFixed(e.townCp) }}</abbr>={{ formatFixed(e.cp) }}
+              <abbr
+                class="tooltip"
+                :title="
+                  Array.from(
+                    e.path,
+                    (nk) =>
+                      `${
+                        routingStore.routing.autotakenNodes.has(nk)
+                          ? 0
+                          : gameStore.nodes[nk].CP
+                      } ${gameStore.uloc.node[nk]}`
+                  ).join('\n')
+                "
+              >
+                {{ e.mapCp }} </abbr
+              >+<abbr class="tooltip" :title="e.infraTooltip">{{
+                formatFixed(e.townCp)
+              }}</abbr
+              >={{ formatFixed(e.cp) }}
             </td>
             <td class="center">
               {{ formatFixed(e.dailyPerCp, 3) }}
             </td>
             <td>
-              <button v-if="userStore.workedPlantzones.has(pzk.toString())" title="plantzone already occupied" disabled="true">assign</button>
-              <button v-else-if="isNaN(e.townCp)" title="Can't resolve housing" disabled="true">assign</button>
-              <button v-else-if="gameStore.tnk2tk(e.w.tnk) && gameStore.tnk2tk(e.w.tnk) == 619 && !userStore.activateAncado" title="Ancado needs to be explicitly activated (see town config) to house workers" disabled="true">assign</button>
-              <button v-else @click="userStore.assignWorker(e.w, {kind: 'plantzone', pzk: e.pz.key, storage: e.storageTnk})">
-                assign
+              <button
+                v-if="userStore.workedPlantzones.has(pzk.toString())"
+                :title="$t('plantzone already occupied')"
+                disabled="true"
+              >
+                {{ $t('assign') }}
+              </button>
+              <button
+                v-else-if="isNaN(e.townCp)"
+                :title="$t('Can\'t resolve housing')"
+                disabled="true"
+              >
+                {{ $t('assign') }}
+              </button>
+              <button
+                v-else-if="
+                  gameStore.tnk2tk(e.w.tnk) &&
+                  gameStore.tnk2tk(e.w.tnk) == 619 &&
+                  !userStore.activateAncado
+                "
+                :title="
+                  $t(
+                    'Ancado needs to be explicitly activated (see town config) to house workers'
+                  )
+                "
+                disabled="true"
+              >
+                {{ $t('assign') }}
+              </button>
+              <button
+                v-else
+                @click="
+                  userStore.assignWorker(e.w, {
+                    kind: 'plantzone',
+                    pzk: e.pz.key,
+                    storage: e.storageTnk,
+                  })
+                "
+              >
+                {{ $t('assign') }}
               </button>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    
-    
-    <MakeAWorker
-      :pzk="pzk"
-      :redirect="Number(selectedRedirect)"
-    />
 
+    <MakeAWorker :pzk="pzk" :redirect="Number(selectedRedirect)" />
   </div>
-
-
 </template>
 
 

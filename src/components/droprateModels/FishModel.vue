@@ -300,7 +300,7 @@ export default {
           max: this.mode_relative ? (this.stats.max < 5 ? this.stats.max + 1 : null) : this.avg_size * 3,
         },
         yAxis: { 
-          name: '% of total',
+          name: this.$t("% of total"),
           nameGap: 11,
           axisLine: { onZero: false } ,
           axisLabel: {
@@ -313,7 +313,7 @@ export default {
         },
         series: [
           {
-            name: 'observed',
+            name: this.$t("observed"),
             type: 'bar',
             encode: { x: 0, y: 1, },
             tooltip: {
@@ -322,7 +322,7 @@ export default {
             },
           },
           {
-            name: 'curve Σ',
+            name: this.$t("curve Σ"),
             type: 'line',
             datasetIndex: 1,
             encode: { x: 0, y: 1 },
@@ -337,7 +337,7 @@ export default {
           source: asPercentages(bell)
         })
         chartOption.series.push({
-          name: `curve ${i}`,
+          name: `${this.$t('curve')} ${i}`,
           type: 'line',
           datasetIndex: 2 + i,
           encode: { x: 0, y: 1 },
@@ -355,7 +355,9 @@ export default {
 
 <template>
   <div>
-    <button v-for="(_, index) in presets" @click="loadPreset(index)">preset{{ index }}</button>
+    <button v-for="(_, index) in presets" @click="loadPreset(index)">
+      {{ $t('preset') }}{{ index }}
+    </button>
 
     <table>
       <tr v-for="(_, index) in curves">
@@ -370,15 +372,18 @@ export default {
         />
       </tr>
     </table>
-    <button @click="addCurve">add curve</button>
+    <button @click="addCurve">{{ $t('add curve') }}</button>
   </div>
 
-  <div id="chartHisto" style="float:left;" v-if="modelC.bell">
-    <v-chart :option="makeHistogramOption" :update-options="{ notMerge: true }" autoresize />
+  <div id="chartHisto" style="float: left" v-if="modelC.bell">
+    <v-chart
+      :option="makeHistogramOption"
+      :update-options="{ notMerge: true }"
+      autoresize
+    />
   </div>
-  
-  <div style="clear:both;"></div>
 
+  <div style="clear: both"></div>
 </template>
 
 <style scoped>

@@ -44,18 +44,19 @@ export default {
   <header>
     <div class="wrapper">
       <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/plantzones">Plantzones</RouterLink>
-        <RouterLink to="/resources">Resources</RouterLink>
-        <RouterLink to="/settings">Settings</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
+        <RouterLink to="/">{{ $t('Home') }}</RouterLink>
+        <RouterLink to="/plantzones">{{ $t('Plantzones') }}</RouterLink>
+        <RouterLink to="/optimizer">{{ $t('帝国优化') }}</RouterLink>
+        <RouterLink to="/resources">{{ $t('Resources') }}</RouterLink>
+        <RouterLink to="/settings">{{ $t('Settings') }}</RouterLink>
+        <RouterLink to="/about">{{ $t('About') }}</RouterLink>
       </nav>
     </div>
   </header>
 
   <p v-if="gameStore.dataError" role="alert">
-    {{ gameStore.dataError }}
-    <button @click="reloadPage">Retry</button>
+    {{ $t(gameStore.dataError) }}
+    <button @click="reloadPage">{{ $t('Retry') }}</button>
   </p>
   <RouterView />
 </template>

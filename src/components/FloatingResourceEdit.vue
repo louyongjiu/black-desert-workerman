@@ -205,7 +205,7 @@ export default {
         grid: { left: 30, top: 30, right: 30, bottom: 40 },
         xAxis: [
           {
-            name: 'workload',
+            name: this.$t("workload"),
             nameGap: 22,
             //inverse: true,
             //scale: true,
@@ -219,7 +219,7 @@ export default {
           },
         ],
         yAxis: {
-          name: 'chance',
+          name: this.$t("chance"),
           //nameLocation: 'center',
           nameGap: 10,
           type: 'value',
@@ -273,15 +273,15 @@ export default {
             //snap: false,
             //axis: 'y',
           },
-          formatter: function(p) {
+          formatter: (p) => {
             const mod = p[0].value[0]
             const wld = p[0].value[1]
             const chance = p[0].value[2]
             const minutes = p[0].value[3]
-            return `${minutes*10} minute tier<br/>`+
-              `workload ≤ ${wld.toFixed(1)}<br/>`+
-              `resource ≥ ${mod.toFixed(1)}<br/>`+
-              `chance ${chance.toFixed(1)}%`
+            return `${minutes*10} ${this.$t('minute tier')}<br/>`+
+              `${this.$t('workload ≤ ')}${wld.toFixed(1)}<br/>`+
+              `${this.$t('resource ≥ ')}${mod.toFixed(1)}<br/>`+
+              `${this.$t('chance ')}${chance.toFixed(1)}%`
           },
         },
         legend: {
@@ -297,7 +297,7 @@ export default {
         },*/
         grid: { left: 30, top: 30, right: 30, bottom: 40 },
         xAxis: {
-          name: 'chance %',
+          name: this.$t("chance %"),
           nameLocation: 'center',
           nameGap: 22,
           type: 'value',
@@ -318,7 +318,7 @@ export default {
         },
         yAxis: [
           {
-            name: 'resource',
+            name: this.$t("resource"),
             nameGap: 10,
             //inverse: true,
             //scale: true,
@@ -372,12 +372,12 @@ export default {
             //snap: false,
             axis: 'x',
           },
-          formatter: function(p) {
+          formatter: (p) => {
             const mod = p[0].value[0]
             const wld = p[0].value[1]
             const chance = p[0].value[2]
             const tier = p[0].value[3]
-            return `${formatFixed(chance, 1)}% chance to get<br/>${formatFixed(mod, 1)} or more resource %, or<br/>${formatFixed(wld, 1)} or less workload, or<br/>${formatFixed(tier*10, 1)} min → ${Math.ceil(tier)*10} min cycle`
+            return `${this.$t('Resource threshold chance: {chance}%', { chance: formatFixed(chance, 1) })}<br/>${formatFixed(mod, 1)} ${this.$t('or more resource %, or')}<br/>${formatFixed(wld, 1)} ${this.$t('or less workload, or')}<br/>${formatFixed(tier*10, 1)} ${this.$t('min')} → ${Math.ceil(tier)*10} ${this.$t('min cycle')}`
           },
           backgroundColor: 'var(--color-background)', 
           borderColor: 'var(--color-border)',
@@ -412,38 +412,52 @@ export default {
 </script>
 
 <template>
-  Observations at RG{{ this.rgk }}:
-  <abbr class="tooltip" title="Enter comma-separated resource values (0..100 range) observed evenly across all worker-active time.
-The order does not matter, but repeat occurence of same value does.
-You can sneak in newlines and comments like `evening,0,0.1,2, morning,3,22,0` - text will be stored, but ignored in calculations.">ℹ</abbr><br/>
-  <textarea 
+  {{ $t('Observations at RG') }}{{ this.rgk }}:
+  <abbr
+    class="tooltip"
+    :title="
+      $t(
+        'Enter comma-separated resource values (0..100 range) observed evenly across all worker-active time.\nThe order does not matter, but repeat occurence of same value does.\nYou can sneak in newlines and comments like `evening,0,0.1,2, morning,3,22,0` - text will be stored, but ignored in calculations.'
+      )
+    "
+    >ℹ</abbr
+  ><br />
+  <textarea
     :value="this.userStore.regionResources2[this.rgk]"
-    @input="event => updStore(event.target.value)" 
-    class="multiline">
+    @input="(event) => updStore(event.target.value)"
+    class="multiline"
+  >
   </textarea>
   <div>
     <v-chart class="chart hmid" :option="chartOption" />
   </div>
-  <span style="line-height: 200%;">Breakpoints:</span>
+  <span style="line-height: 200%">{{ $t('Breakpoints:') }}</span>
   <table class="fsxs tar">
     <tr>
-      <th>work time</th>
-      <td v-for="r in tierResources.filter(r => r.time)">{{ 10 * r.tier }} min</td>
+      <th>{{ $t('work time') }}</th>
+      <td v-for="r in tierResources.filter((r) => r.time)">
+        {{ 10 * r.tier }} {{ $t('min') }}
+      </td>
     </tr>
     <tr>
-      <th>workload ≤</th>
-      <td v-for="r in tierResources.filter(r => r.time)">{{ formatFixed(r.wld, 2) }}</td>
+      <th>{{ $t('workload ≤') }}</th>
+      <td v-for="r in tierResources.filter((r) => r.time)">
+        {{ formatFixed(r.wld, 2) }}
+      </td>
     </tr>
     <tr>
-      <th>resource ≥</th>
-      <td v-for="r in tierResources.filter(r => r.time)">{{ formatFixed(100 * r.mod, 2) }}</td>
+      <th>{{ $t('resource ≥') }}</th>
+      <td v-for="r in tierResources.filter((r) => r.time)">
+        {{ formatFixed(100 * r.mod, 2) }}
+      </td>
     </tr>
     <tr>
-      <th>chance</th>
-      <td v-for="r in tierResources.filter(r => r.time)">{{ formatFixed(r.time, 2) }}%</td>
+      <th>{{ $t('chance') }}</th>
+      <td v-for="r in tierResources.filter((r) => r.time)">
+        {{ formatFixed(r.time, 2) }}%
+      </td>
     </tr>
   </table>
-
 </template>
 
 <style scoped>

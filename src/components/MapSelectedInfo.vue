@@ -127,25 +127,20 @@ export default {
       
     </div>
     <div id="clickedTownInfo" v-else-if="gameStore.configurableTownsSet.has(clickedNode.key)" class="vscrollable">
-      <button @click="this.$emit('selectHouses', gameStore.tnk2tk(clickedNode.key))" :class="{ 'unresolved': gameStore.ready && userStore.townsInfra[gameStore.tnk2tk(clickedNode.key)].success == false }">
-        config
-      </button>
+      <button @click="this.$emit('selectHouses', gameStore.tnk2tk(clickedNode.key))" :class="{ 'unresolved': gameStore.ready && userStore.townsInfra[gameStore.tnk2tk(clickedNode.key)].success == false }"> {{ $t("config") }} </button>
     </div>
 
     <div id="clickedNodeName" v-if="gameStore.isConnectionNode(clickedNode.key)">
       <p>
         {{ gameStore.uloc.node[clickedNode.key] }}
         <template v-if="routingStore.routing.autotakenGrindNodes.has(clickedNode.key)">
-          <s>{{ clickedNode.thisCpCost }}CP</s> <abbr class="tooltip" title="used for grind node">ℹ</abbr>
+          <s>{{ clickedNode.thisCpCost }}{{ $t("CP") }}</s> <abbr class="tooltip" :title="$t(&quot;used for grind node&quot;)">ℹ</abbr>
         </template>
         <template v-else>
-          {{ clickedNode.thisCpCost }}CP
-        </template>
+          {{ clickedNode.thisCpCost }}{{ $t("CP") }} </template>
       </p>
 
-      <p class="fsxs" v-if="clickedNode.key in userStore.currentNodesJobs">
-        shared by active nodejobs:
-        <p v-for="job in activeNodeJobs_sorted">
+      <p class="fsxs" v-if="clickedNode.key in userStore.currentNodesJobs"> {{ $t("shared by active nodejobs:") }} <p v-for="job in activeNodeJobs_sorted">
           {{ formatFixed(jobCashFlowPercent(job) * 100) }}% -
           <span 
             v-if="this.gameStore.jobIsPz(job.worker.job)"
@@ -159,19 +154,14 @@ export default {
             {{ userStore.userWorkshops[job.worker.job.hk].label }}
           </span>
           @
-          {{ formatFixed(job.profit.priceDaily, 2) }} M$/day
-        </p>
+          {{ formatFixed(job.profit.priceDaily, 2) }} {{ $t("M$/day") }} </p>
       </p>
 
-      <input type="checkbox" @change="userStore.modifyGrindTakens($event, clickedNode.key)" :checked="userStore.grindTakenSet.has(clickedNode.key)">
-      grind node (invested for droprate)
-    </div>
+      <input type="checkbox" @change="userStore.modifyGrindTakens($event, clickedNode.key)" :checked="userStore.grindTakenSet.has(clickedNode.key)"> {{ $t("grind node (invested for droprate)") }} </div>
 
     <div id="clickedPlantzoneInfo" v-if="gameStore.isPlantzone(clickedNode.key)">
       <template v-if="userStore.grindTakenSet.has(clickedNode.key)">
-        <input type="checkbox" @change="userStore.modifyGrindTakens($event, clickedNode.key)" :checked="userStore.grindTakenSet.has(clickedNode.key)">
-        grind node (invested for droprate)
-      </template>
+        <input type="checkbox" @change="userStore.modifyGrindTakens($event, clickedNode.key)" :checked="userStore.grindTakenSet.has(clickedNode.key)"> {{ $t("grind node (invested for droprate)") }} </template>
       
       <Plantzone
         :pzk="clickedNode.key"

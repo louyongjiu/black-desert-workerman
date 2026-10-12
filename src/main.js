@@ -6,6 +6,7 @@ import router from "./router";
 import { useUserStore } from './stores/user'
 import { useMapStore } from './stores/map'
 import { useMarketStore } from './stores/market'
+import { installUiI18n } from './i18n/vue'
 
 import "./assets/main.css";
 
@@ -20,6 +21,7 @@ for (const [key, store] of [['map', useMapStore()], ['market', useMarketStore()]
   if (saved) store.$patch(JSON.parse(saved))
 }
 useMarketStore().apiFetching = false
+installUiI18n(app, useUserStore())
 app.use(router);
 
 app.mount("#app");

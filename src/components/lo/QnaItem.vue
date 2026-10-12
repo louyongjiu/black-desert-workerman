@@ -2,12 +2,8 @@
 </script>
 
 <template>
-  <div class="q">
-    Q: <slot name="q"></slot>
-  </div>
-  <div>
-    A: <slot></slot>
-  </div>
+  <div class="q">{{ $t('Q:') }} <slot name="q"></slot></div>
+  <div>{{ $t('A:') }} <slot></slot></div>
 </template>
 
 <style scoped>

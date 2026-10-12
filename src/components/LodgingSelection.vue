@@ -37,27 +37,29 @@ export default {
 
 <template>
   <template v-if="o">
-    <h3>{{ gameStore.uloc.town[tk] }} lodging config</h3>
+    <h3>{{ gameStore.uloc.town[tk] }} {{ $t('lodging config') }}</h3>
 
     <template v-if="tk == 619">
-      <input type="checkbox" v-model="userStore.activateAncado"/>
-      Connect to nearest town
+      <input type="checkbox" v-model="userStore.activateAncado" />
+      {{ $t('Connect to nearest town') }}
     </template>
-  
+
     <table>
       <tr>
-        <th>House</th>
+        <th>{{ $t('House') }}</th>
         <th>🛏️</th>
-        <th>CP</th>
+        <th>{{ $t('CP') }}</th>
       </tr>
 
       <tr v-for="house in o.houses">
         <td>
-          <input type="checkbox" 
-            :disabled="tk == 619 && !userStore.activateAncado" 
-            v-model="userStore.lodgingTaken[house.key]">
-          {{' '}}
-          <a :href="'https://bdocodex.com/us/npc/'+house.key">
+          <input
+            type="checkbox"
+            :disabled="tk == 619 && !userStore.activateAncado"
+            v-model="userStore.lodgingTaken[house.key]"
+          />
+          {{ ' ' }}
+          <a :href="'https://bdocodex.com/us/npc/' + house.key">
             {{ gameStore.uloc.char[house.key] }}
           </a>
         </td>
@@ -67,9 +69,13 @@ export default {
 
       <tr>
         <td>
-          <input type="number" :disabled="tk == 619 && !userStore.activateAncado" v-model.number="userStore.lodgingP2W[tk]" class="short">
-          P2W slots →
-          Total:
+          <input
+            type="number"
+            :disabled="tk == 619 && !userStore.activateAncado"
+            v-model.number="userStore.lodgingP2W[tk]"
+            class="short"
+          />
+          {{ $t('P2W slots → Total:') }}
         </td>
         <td>
           {{ userStore.haveLodging.slots.perTown[tk] }}
@@ -79,7 +85,5 @@ export default {
         </td>
       </tr>
     </table>
-
-    
   </template>
 </template>

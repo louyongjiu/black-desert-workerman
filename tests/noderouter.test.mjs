@@ -1,9 +1,25 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import vm from 'node:vm'
 import init, { WasmNodeRouter } from '../src/pkg/noderouter.js'
 
 await init({ module_or_path: readFileSync(new URL('../src/pkg/noderouter_bg.wasm', import.meta.url)) })
+
+test('route fallback unwraps the official [nodes, cost] result for forced-node workarounds', () => {
+  const source = readFileSync(new URL('../src/stores/routing.js', import.meta.url), 'utf8')
+    .replace(/^import .*\r?\n/gm, '').replace('export const useRoutingStore =', 'const useRoutingStore =')
+  let input
+  const game = { nodes: { 1152: { CP: 2 }, 101: { CP: 1 }, 5: { CP: 3 } },
+    wasmRouter: { solveForTerminalPairs(pairs) { input = pairs; return [[1152, 101], 3] } } }
+  const options = vm.runInNewContext(source + '\nuseRoutingStore', {
+    defineStore: options => options, useGameStore: () => game,
+    useUserStore: () => ({ grindTakenList: [1152] }), console: { log() {} },
+  })
+  const result = options.actions.applyWasmWorkarounds([1152, 101, 5], [[1152, 99999]])
+  assert.deepEqual(Array.from(result), [1152, 101])
+  assert.deepEqual(JSON.parse(JSON.stringify(input)), [[1152, 1002]])
+})
 
 const sharedGraph = Object.fromEntries([
   [1, 0, [2, 3]],

@@ -363,7 +363,7 @@ export default {
         grid: { left: 35, top: 30, right: 10, bottom: 20 },
         series: [
           {
-            name: 'observed',
+            name: this.$t("observed"),
             type: 'bar',
             encode: { x: 0, y: 1, },
             tooltip: {
@@ -372,21 +372,21 @@ export default {
             },
           },
           {
-            name: 'model Σ',
+            name: this.$t("model Σ"),
             type: 'line',
             datasetIndex: 1,
             encode: { x: 0, y: 1 },
             showSymbol: false,
           },
           {
-            name: 'model U',
+            name: this.$t("model U"),
             type: 'line',
             datasetIndex: 3,
             encode: { x: 0, y: 1 },
             showSymbol: false,
           },
           {
-            name: 'model L',
+            name: this.$t("model L"),
             type: 'line',
             datasetIndex: 2,
             encode: { x: 0, y: 1 },
@@ -546,7 +546,7 @@ export default {
               data: [
                 (this.isGiant) ? [
                   {
-                    name: 'low λ, high M',
+                    name: this.$t("low λ, high M"),
                     label: { position: 'insideMiddleTop' },
                     coord: [
                       this.sweepRange.u_hi - this.sweepRange.u_init,
@@ -569,7 +569,7 @@ export default {
                   }
                 ]: [
                   {
-                    name: 'low λ, high M',
+                    name: this.$t("low λ, high M"),
                     label: { position: 'insideMiddleTop' },
                     coord: [
                       this.sweepRange.u_hi - this.sweepRange.u_init,
@@ -593,7 +593,7 @@ export default {
                 ],
                 [
                   {
-                    name: 'high λ, low M',
+                    name: this.$t("high λ, low M"),
                     label: { position: 'insideMiddleBottom' },
                     coord: [
                       this.sweepRange.u_lo - this.sweepRange.u_init, 
@@ -630,30 +630,53 @@ export default {
 </script>
 
 <template>
-  <span class="title">Model C</span>
-  <span>: some points were taken from a distribution L,
-    and the rest from distribution U,<br/>
-  so (1 - λ) npᵁ + λ (npᵁ + npᴸ) = M, where 
-  λ ∈ {{ formatFixed(stats.lucky.shareLo*100, 2) }}…{{ formatFixed(stats.lucky.shareHi*100, 2) }}% and 
-  M ∈ {{ formatFixed(stats.mean - 1.96 * stats.meanErr, 2) }}…{{ formatFixed(stats.mean + 1.96 * stats.meanErr, 2) }}</span><br/>
-  
-  <p><input type="checkbox" v-model="isGiant"> with giant bonus on Unlucky</p>
-  <p><input type="checkbox" v-model="isGiant_lucky"> with giant bonus on Lucky</p>
+  <span class="title">{{ $t('Model C') }}</span>
+  <span
+    >{{
+      $t(
+        ': some points were taken from a distribution L, and the rest from distribution U,'
+      )
+    }}<br />
+    {{ $t('so (1 - λ) npᵁ + λ (npᵁ + npᴸ) = M, where λ ∈') }}
+    {{ formatFixed(stats.lucky.shareLo * 100, 2) }}…{{
+      formatFixed(stats.lucky.shareHi * 100, 2)
+    }}{{ $t('% and M ∈') }}
+    {{ formatFixed(stats.mean - 1.96 * stats.meanErr, 2) }}…{{
+      formatFixed(stats.mean + 1.96 * stats.meanErr, 2)
+    }}</span
+  ><br />
 
-  <div style="float:left;">
-    <div style="width:570px;height:270px;">
-      <v-chart :option="makeChartCGrid" v-if="modelCSweep?.result?.npU && bestPval"/>
-      <div v-else class="inner">
-        npᵁ=0 or no bestPval
-      </div>
+  <p>
+    <input type="checkbox" v-model="isGiant" />
+    {{ $t('with giant bonus on Unlucky') }}
+  </p>
+  <p>
+    <input type="checkbox" v-model="isGiant_lucky" />
+    {{ $t('with giant bonus on Lucky') }}
+  </p>
+
+  <div style="float: left">
+    <div style="width: 570px; height: 270px">
+      <v-chart
+        :option="makeChartCGrid"
+        v-if="modelCSweep?.result?.npU && bestPval"
+      />
+      <div v-else class="inner">{{ $t('npᵁ=0 or no bestPval') }}</div>
     </div>
-    
-    <div style="padding:1em;">
-      <div style="float:left;">
+
+    <div style="padding: 1em">
+      <div style="float: left">
         <table>
-          <tr><th></th><th>npᵁ</th><th>npᴸ</th><th>n</th><th>MSE</th><th>p-val</th></tr>
+          <tr>
+            <th></th>
+            <th>npᵁ</th>
+            <th>npᴸ</th>
+            <th>n</th>
+            <th>MSE</th>
+            <th>p-val</th>
+          </tr>
           <tr :class="{ strike: stats.dBad }" v-if="modelCSweep.result">
-            <td>Best fit:</td>
+            <td>{{ $t('Best fit:') }}</td>
             <td>{{ formatFixed(modelCSweep.result.npU, 2) }}</td>
             <td>{{ formatFixed(modelCSweep.result.npL, 2) }}</td>
             <td>{{ modelCSweep.result.n }}</td>
@@ -661,7 +684,7 @@ export default {
             <td>{{ formatFixed(modelCSweep.result.loss.pval, 4) }}</td>
           </tr>
           <tr>
-            <td>Manual:</td>
+            <td>{{ $t('Manual:') }}</td>
             <td>{{ formatFixed(selected_npU, 2) }}</td>
             <td>{{ formatFixed(selected_npL, 2) }}</td>
             <td>{{ selected_n }}</td>
@@ -670,27 +693,65 @@ export default {
           </tr>
         </table>
         <p>
-          <input type="range" @input="event => applySelectedNpU(Number(event.target.value))" :value="selected_npU" :min="stats.min" :max="stats.max" :step="0.01" class="vmid"> npᵁ
-          <br/>
-          <input type="range" @input="event => applySelectedNpL(Number(event.target.value))" :value="selected_npL" :min="0" :max="stats.max" :step="0.01" class="vmid"> npᴸ
-          <br/>
-          <input type="range" @input="event => applySelectedN(Number(event.target.value))" :value="selected_n" :min="1" :max="200" :step="1" class="vmid"> n
+          <input
+            type="range"
+            @input="(event) => applySelectedNpU(Number(event.target.value))"
+            :value="selected_npU"
+            :min="stats.min"
+            :max="stats.max"
+            :step="0.01"
+            class="vmid"
+          />
+          npᵁ
+          <br />
+          <input
+            type="range"
+            @input="(event) => applySelectedNpL(Number(event.target.value))"
+            :value="selected_npL"
+            :min="0"
+            :max="stats.max"
+            :step="0.01"
+            class="vmid"
+          />
+          npᴸ
+          <br />
+          <input
+            type="range"
+            @input="(event) => applySelectedN(Number(event.target.value))"
+            :value="selected_n"
+            :min="1"
+            :max="200"
+            :step="1"
+            class="vmid"
+          />
+          n
         </p>
       </div>
-      <div style="clear:both;"></div>
+      <div style="clear: both"></div>
     </div>
   </div>
 
-  <div id="chartHisto" style="float:left;" v-if="modelC.bell">
+  <div id="chartHisto" style="float: left" v-if="modelC.bell">
     <v-chart :option="makeChartCHist" />
   </div>
-  
-  <div style="clear:both;"></div>
 
-  <br/>
-  <p class="fsxs">MSE: <i>Σ (observed - model)²</i>, discard nothing ← this is used for fitting</p>
-  <p class="fsxs">χ²: discard bins where model &lt; 3, then <i>Σ (observed - model)² / model</i></p>
-  <p class="fsxs">p-val: <i>1 - chisquare.cdf(χ², bins - 1 - dof)</i> ← on small datasets this depends too much on previous step discards</p>
+  <div style="clear: both"></div>
+
+  <br />
+  <p class="fsxs">
+    MSE: <i>{{ $t('Σ (observed - model)²') }}</i
+    >{{ $t(', discard nothing ← this is used for fitting') }}
+  </p>
+  <p class="fsxs">
+    {{ $t('χ²: discard bins where model < 3, then') }}
+    <i>{{ $t('Σ (observed - model)² / model') }}</i>
+  </p>
+  <p class="fsxs">
+    p-val: <i>1 - chisquare.cdf(χ², bins - 1 - dof)</i>
+    {{
+      $t('← on small datasets this depends too much on previous step discards')
+    }}
+  </p>
 </template>
 
 <style scoped>

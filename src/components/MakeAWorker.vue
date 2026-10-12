@@ -149,56 +149,147 @@ export default {
 
 <template>
   <div>
-    <h4>Nearest towns with hireable workers:</h4>
-    
+    <h4>{{ $t('Nearest towns with hireable workers:') }}</h4>
+
     <table v-if="this.nearestTownsHireable">
       <tr>
-        <th>🛏️town</th>
-        <th>walk</th>
-        <th>make new level 40 artisan <abbr class="tooltip" title="with median stats and a single +5🔨 skill">ℹ</abbr></th>
-        <th>+CP <abbr class="tooltip" title="node connection + town housing = total">ℹ</abbr></th>
-        <th>M$/day/CP</th>
-        <th>action</th>
+        <th>{{ $t('🛏️town') }}</th>
+        <th>{{ $t('walk') }}</th>
+        <th>
+          {{ $t('make new level 40 artisan') }}
+          <abbr
+            class="tooltip"
+            :title="$t('with median stats and a single +5🔨 skill')"
+            >ℹ</abbr
+          >
+        </th>
+        <th>
+          {{ $t('+CP') }}
+          <abbr
+            class="tooltip"
+            :title="$t('node connection + town housing = total')"
+            >ℹ</abbr
+          >
+        </th>
+        <th>{{ $t('M$/day/CP') }}</th>
+        <th>{{ $t('action') }}</th>
       </tr>
       <tr v-for="nt in this.nearestTownsHireable">
         <td>
           {{ gameStore.uloc.node[nt.tnk] }}
         </td>
         <td class="center">
-          {{ formatFixed(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.profit.dist) }}
+          {{
+            formatFixed(
+              nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.profit.dist
+            )
+          }}
         </td>
         <td>
           <select v-model="selectedWorkerIndices[nt.tnk]">
-            <option v-for="ksp, n in nt.workerKinds" :value="n">
-              {{ gameStore.uloc.char[ksp.stats.charkey] }} ({{ formatFixed(ksp.PZSE.profit.priceDaily, 2) }} M$/day)
+            <option v-for="(ksp, n) in nt.workerKinds" :value="n">
+              {{ gameStore.uloc.char[ksp.stats.charkey] }} ({{
+                formatFixed(ksp.PZSE.profit.priceDaily, 2)
+              }}
+              {{ $t('M$/day)') }}
             </option>
           </select>
         </td>
         <td class="center">
-          <abbr class="tooltip" :title="Array.from(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.path, nk => `${routingStore.routing.autotakenNodes.has(nk) ? 0 : gameStore.nodes[nk].CP} ${gameStore.uloc.node[nk]}`).join('\n')">
-          {{ nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.mapCp }}
-          </abbr>+<abbr class="tooltip" :title="nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.infraTooltip">{{ formatFixed(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.townCp) }}</abbr>={{ formatFixed(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.cp) }}
+          <abbr
+            class="tooltip"
+            :title="
+              Array.from(
+                nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.path,
+                (nk) =>
+                  `${
+                    routingStore.routing.autotakenNodes.has(nk)
+                      ? 0
+                      : gameStore.nodes[nk].CP
+                  } ${gameStore.uloc.node[nk]}`
+              ).join('\n')
+            "
+          >
+            {{
+              nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.mapCp
+            }} </abbr
+          >+<abbr
+            class="tooltip"
+            :title="
+              nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.infraTooltip
+            "
+            >{{
+              formatFixed(
+                nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.townCp
+              )
+            }}</abbr
+          >={{
+            formatFixed(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.cp)
+          }}
         </td>
         <td class="center">
-          {{ formatFixed(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.dailyPerCp, 3) }}
+          {{
+            formatFixed(
+              nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.dailyPerCp,
+              3
+            )
+          }}
         </td>
         <td>
-          <button v-if="userStore.workedPlantzones.has(pzk.toString())" title="plantzone already occupied" disabled="true">hire+assign</button>
-          <button v-else-if="isNaN(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.townCp)" title="Can't find housing, try P2W" disabled="true">hire+assign</button>
-          <button v-else-if="isNaN(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.profit.dist)" title="No walk path" disabled="true">hire+assign</button>
-          <button v-else-if="gameStore.tnk2tk(nt.tnk) && gameStore.tnk2tk(nt.tnk) == 619 && !userStore.activateAncado" title="Ancado needs to be explicitly activated (see town config) to house workers" disabled="true">hire+assign</button>
-          <button v-else @click="assignWorker(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE)">
-            hire+assign
+          <button
+            v-if="userStore.workedPlantzones.has(pzk.toString())"
+            :title="$t('plantzone already occupied')"
+            disabled="true"
+          >
+            {{ $t('hire+assign') }}
+          </button>
+          <button
+            v-else-if="
+              isNaN(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.townCp)
+            "
+            :title="$t('Can\'t find housing, try P2W')"
+            disabled="true"
+          >
+            {{ $t('hire+assign') }}
+          </button>
+          <button
+            v-else-if="
+              isNaN(
+                nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE.profit.dist
+              )
+            "
+            :title="$t('No walk path')"
+            disabled="true"
+          >
+            {{ $t('hire+assign') }}
+          </button>
+          <button
+            v-else-if="
+              gameStore.tnk2tk(nt.tnk) &&
+              gameStore.tnk2tk(nt.tnk) == 619 &&
+              !userStore.activateAncado
+            "
+            :title="
+              $t(
+                'Ancado needs to be explicitly activated (see town config) to house workers'
+              )
+            "
+            disabled="true"
+          >
+            {{ $t('hire+assign') }}
+          </button>
+          <button
+            v-else
+            @click="
+              assignWorker(nt.workerKinds[selectedWorkerIndices[nt.tnk]].PZSE)
+            "
+          >
+            {{ $t('hire+assign') }}
           </button>
         </td>
       </tr>
-      
     </table>
-    <span v-else>
-      None
-    </span>
-    
-    
+    <span v-else> {{ $t('None') }} </span>
   </div>
 </template>
 

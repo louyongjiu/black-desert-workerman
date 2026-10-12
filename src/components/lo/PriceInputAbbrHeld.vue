@@ -149,14 +149,14 @@ export default {
 
     <div class="spin-buttons">
       <button
-        aria-label="Increase"
+        :aria-label="$t('Increase')"
         @mousedown.prevent="startSpin(1)"
         @mouseup="stopSpin"
         @mouseleave="stopSpin"
       ></button>
 
       <button
-        aria-label="Decrease"
+        :aria-label="$t('Decrease')"
         @mousedown.prevent="startSpin(-1)"
         @mouseup="stopSpin"
         @mouseleave="stopSpin"

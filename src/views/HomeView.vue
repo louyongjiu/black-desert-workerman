@@ -1,4 +1,5 @@
 <script>
+import LocalizedFileInput from '../components/LocalizedFileInput.vue'
 import draggable from "vuedraggable";
 import {useGameStore} from '../stores/game'
 import {useUserStore} from '../stores/user'
@@ -43,6 +44,7 @@ export default {
   },
   
   components: {
+    LocalizedFileInput,
     draggable,
     ItemIcon,
     Worker,
@@ -338,6 +340,7 @@ export default {
         lodgingP2W: this.userStore.lodgingP2W,
         lodgingTaken: this.userStore.lodgingTaken,
         userWorkers: this.userStore.userWorkers,
+        optimizerPlan: this.userStore.optimizerPlan,
         farmingEnable: this.userStore.farmingEnable,
         farmingProfit: this.userStore.farmingProfit,
         farmingBareProfit: this.userStore.farmingBareProfit,
@@ -385,53 +388,66 @@ export default {
 </script>
 
 <template>
-  
   <ModalDialog v-model:show="workerDialogVisible">
-    <WorkerEdit 
-      :workerEditing="workerEditing" 
-      :workerInitial="workerEditingInitial" 
-      :initialProfit="workerEditingInitialProfit" 
+    <WorkerEdit
+      :workerEditing="workerEditing"
+      :workerInitial="workerEditingInitial"
+      :initialProfit="workerEditingInitialProfit"
       v-model:show="workerDialogVisible"
     />
   </ModalDialog>
-  
+
   <ModalDialog v-model:show="sendDialogVisible">
-    <WorkerSendSelection :w="sendDialogWorker" v-model:show="sendDialogVisible"/>
+    <WorkerSendSelection
+      :w="sendDialogWorker"
+      v-model:show="sendDialogVisible"
+    />
   </ModalDialog>
 
   <ModalDialog v-model:show="lodgingDialogVisible">
-    <LodgingSelection :tk="lodgingDialogTown" :o="lodgingDialogData" v-model:show="lodgingDialogVisible"/>
+    <LodgingSelection
+      :tk="lodgingDialogTown"
+      :o="lodgingDialogData"
+      v-model:show="lodgingDialogVisible"
+    />
   </ModalDialog>
 
   <ModalDialog v-model:show="housesDialogVisible">
-    <HousesSelection :tk="housesDialogTown" v-model:show="housesDialogVisible"/>
+    <HousesSelection
+      :tk="housesDialogTown"
+      v-model:show="housesDialogVisible"
+    />
   </ModalDialog>
 
   <ModalDialog v-model:show="selectWorkerDialogVisible">
-    <WorkerSelection :hk="selectWorkerHouseKey" v-model:show="selectWorkerDialogVisible"/>
+    <WorkerSelection
+      :hk="selectWorkerHouseKey"
+      v-model:show="selectWorkerDialogVisible"
+    />
   </ModalDialog>
 
   <ModalDialog v-model:show="importDialogVisible">
     <form @submit.prevent="fileImport($event)">
-      <input type="file" accept=".json" @click="fileImport()" />
-      <button>import</button><br/>
+      <LocalizedFileInput accept=".json" />
+      <button>{{ $t('import') }}</button><br />
     </form>
   </ModalDialog>
 
   <ModalDialog v-model:show="resourceDialogVisible">
-    <FloatingResourceEdit 
+    <FloatingResourceEdit
       :rgk="resourceDialogRgroup"
       :wspd="resourceDialogWspd"
       :workload="resourceDialogWkld"
       v-model:show="resourceDialogVisible"
     />
-    <div style="width: 24em;">Test with workspeed:
-      <input 
-        type="range" 
+    <div style="width: 24em">
+      {{ $t('Test with workspeed:') }}
+      <input
+        type="range"
         class="vmid"
-        v-model.number="resourceDialogWspd" 
-        min="40" 
-        max="200" 
+        v-model.number="resourceDialogWspd"
+        min="40"
+        max="200"
         step="0.01"
       />
       {{ resourceDialogWspd }}
@@ -439,47 +455,55 @@ export default {
   </ModalDialog>
 
   <main>
-
     <div id="canvas-limiter">
-
-      <NodeMap 
+      <NodeMap
         ref="nodeMap"
-        v-model:clickedObj="clickedNode" 
-        v-model:hoverInfo="hoverInfo" 
+        v-model:clickedObj="clickedNode"
+        v-model:hoverInfo="hoverInfo"
         v-model:panToPzk="panToPzk"
         v-model:panPaPos="panPaPos"
         @panAnywhere="panPaPos = null"
         :highlightNodes="highlightNodes"
       />
-        
+
       <div class="topcenter" v-if="userStore.error">
-        ERROR: {{ userStore.error }}
+        {{ $t('ERROR:') }} {{ $t(userStore.error) }}
       </div>
 
-      <div v-if="hoverInfo && hoverInfo.object" id="tooltip" :style="{left:hoverInfo.x+'px', top:hoverInfo.y+'px'}">
-        {{ hoverInfo.object.key }} {{ gameStore.uloc.node[hoverInfo.object.key] }} {{ hoverInfo.object.thisCpCost }}CP
+      <div
+        v-if="hoverInfo && hoverInfo.object"
+        id="tooltip"
+        :style="{ left: hoverInfo.x + 'px', top: hoverInfo.y + 'px' }"
+      >
+        {{ hoverInfo.object.key }}
+        {{ gameStore.uloc.node[hoverInfo.object.key] }}
+        {{ hoverInfo.object.thisCpCost }}{{ $t('CP') }}
         <span v-if="hoverInfo.object.key in this.gameStore.plantzones">
-          <ItemIcon v-for="k in this.gameStore.plantzones[hoverInfo.object.key].itemkeys" :ik="Number(k)"/>
+          <ItemIcon
+            v-for="k in this.gameStore.plantzones[hoverInfo.object.key]
+              .itemkeys"
+            :ik="Number(k)"
+          />
         </span>
-        <span v-if="this.gameStore.townsConnectionRoots.has(hoverInfo.object.key)">
-          <br/>[town {{ this.gameStore._tnk2tk[hoverInfo.object.key] }}]
+        <span
+          v-if="this.gameStore.townsConnectionRoots.has(hoverInfo.object.key)"
+        >
+          <br />{{ $t('[town') }}
+          {{ this.gameStore._tnk2tk[hoverInfo.object.key] }}]
         </span>
-        <br/>
+        <br />
         <!--{{ hoverInfo.object.fromTownCpCost }}CP → {{this.gameStore.uloc.node[hoverInfo.object.fromTown] }}-->
       </div>
 
       <div id="topleft">
         <details>
-          <summary>Empire</summary>
-          <EmpireOverview
-            @panToPaPos="panToPaPos"
-          />
+          <summary>{{ $t('Empire') }}</summary>
+          <EmpireOverview @panToPaPos="panToPaPos" />
         </details>
-
       </div>
 
       <div id="leftside">
-        <MapSelectedInfo 
+        <MapSelectedInfo
           :clickedNode="clickedNode"
           @selectLodging="selectLodging"
           @selectHouses="selectHouses"
@@ -494,129 +518,188 @@ export default {
       </div>
 
       <div id="rightside">
-
-        <search-bar 
+        <search-bar
           ref="searchBar"
-          :visible="showSearchBar" 
-          @close="showSearchBar = false" 
+          :visible="showSearchBar"
+          @close="showSearchBar = false"
           @select="handleSearchSelection"
         />
 
         <div id="totals">
           <details>
-            <summary>Total workers: {{ userStore.countWorkers }}</summary>
+            <summary>
+              {{ $t('Total workers:') }} {{ userStore.countWorkers }}
+            </summary>
             <p class="fsxs">
-              nodes: {{ userStore.workedPlantzones.size }} <br/>
+              {{ $t('nodes:') }} {{ userStore.workedPlantzones.size }} <br />
 
               <template v-if="userStore.workersFarmingCount">
                 <template v-if="!userStore.farmingEnable">
-                  <abbr title="CP not allocated for fences, enable Farming on Settings page" class="tooltip">⚠️</abbr>
+                  <abbr
+                    :title="
+                      $t(
+                        'CP not allocated for fences, enable Farming on Settings page'
+                      )
+                    "
+                    class="tooltip"
+                    >⚠️</abbr
+                  >
                 </template>
-                <template v-else-if="userStore.workersFarmingCount && userStore.workersFarmingCount < 10">
-                  <abbr title="not all fences being worked, for best results either send 10 workers or none at all" class="tooltip">⚠️</abbr>
+                <template
+                  v-else-if="
+                    userStore.workersFarmingCount &&
+                    userStore.workersFarmingCount < 10
+                  "
+                >
+                  <abbr
+                    :title="
+                      $t(
+                        'not all fences being worked, for best results either send 10 workers or none at all'
+                      )
+                    "
+                    class="tooltip"
+                    >⚠️</abbr
+                  >
                 </template>
-                farming:
-                {{ userStore.workersFarmingCount }} <br/> 
+                {{ $t('farming:') }} {{ userStore.workersFarmingCount }} <br />
               </template>
 
               <template v-if="userStore.workersWorkshopCount">
-                workshops: {{ userStore.workersWorkshopCount }} <br/> 
+                {{ $t('workshops:') }} {{ userStore.workersWorkshopCount }}
+                <br />
               </template>
 
               <template v-if="userStore.workersCustomCount">
-                custom: {{ userStore.workersCustomCount }} <br/> 
+                {{ $t('custom:') }} {{ userStore.workersCustomCount }} <br />
               </template>
 
               <template v-if="userStore.workersIdleCount">
-                ⚠️ idle: {{ userStore.workersIdleCount }} 
+                {{ $t('⚠️ idle:') }} {{ userStore.workersIdleCount }}
               </template>
             </p>
           </details>
 
           <details>
-            <summary>Total CP: {{ formatFixed(userStore.totalCP) }}</summary>
+            <summary>
+              {{ $t('Total CP:') }} {{ formatFixed(userStore.totalCP) }}
+            </summary>
             <p class="fsxs">
-              
               <draggable v-model="userStore.linkOrder" itemKey="id">
                 <template #item="{ element, index }">
                   <div class="draggable">
-                    {{ index+1 }}.
+                    {{ index + 1 }}.
                     <template v-if="element.name == 'grind'">
-                      invested for droprate: 
+                      {{ $t('invested for droprate:') }}
                       <abbr class="tooltip" :title="userStore.grindTakenDesc">
-                        {{ routingStore.routing.autotakenGrindNodesCP }}
-                      </abbr><br/>
+                        {{ routingStore.routing.autotakenGrindNodesCP }} </abbr
+                      ><br />
                     </template>
                     <template v-else-if="element.name == 'worker'">
-                      nodes: {{ routingStore.routing.autotakenWorkerNodesCP }} <br/>
+                      {{ $t('nodes:') }}
+                      {{ routingStore.routing.autotakenWorkerNodesCP }} <br />
                     </template>
                     <template v-else-if="element.name == 'wagon'">
-                      wagon routes: 
-                      <abbr class="tooltip" :title="[...userStore.wagonRoutes].reduce((acc, rt) => acc + `${gameStore.uloc.node[rt.origin]} - ${gameStore.uloc.node[rt.destination]}\n`, '')">
-                        {{ routingStore.routing.autotakenWagonNodesCP }}
-                      </abbr><br/>
+                      {{ $t('wagon routes:') }}
+                      <abbr
+                        class="tooltip"
+                        :title="
+                          [...userStore.wagonRoutes].reduce(
+                            (acc, rt) =>
+                              acc +
+                              `${gameStore.uloc.node[rt.origin]} - ${
+                                gameStore.uloc.node[rt.destination]
+                              }\n`,
+                            ''
+                          )
+                        "
+                      >
+                        {{ routingStore.routing.autotakenWagonNodesCP }} </abbr
+                      ><br />
                     </template>
                   </div>
                 </template>
               </draggable>
+              {{ $t('lodging/storage:') }} {{ userStore.lodgage }} <br />
 
-              lodging/storage: {{ userStore.lodgage }} <br/>
-                
               <template v-if="userStore.farmingEnable">
-                farming: {{ userStore.farmingCP }} <br/>
+                {{ $t('farming:') }} {{ userStore.farmingCP }} <br />
               </template>
 
               <template v-if="userStore.workersWorkshopCount">
-                workshops:
-                {{ formatFixed(userStore.workshopTotalCP) }} <br/>
+                {{ $t('workshops:') }}
+                {{ formatFixed(userStore.workshopTotalCP) }} <br />
               </template>
 
               <template v-if="userStore.workersCustomCount">
-                custom:
-                {{ userStore.customTotalCP }} <br/>
+                {{ $t('custom:') }} {{ userStore.customTotalCP }} <br />
               </template>
-
             </p>
-            
           </details>
 
           <details>
-            <summary>Total M$/day: {{ formatFixed(userStore.allJobsTotalDailyProfit, 2) }}</summary>
+            <summary>
+              {{ $t('Total M$/day:') }}
+              {{ formatFixed(userStore.allJobsTotalDailyProfit, 2) }}
+            </summary>
             <p class="fsxs">
-              nodes: {{ formatFixed(userStore.pzJobsTotalDailyProfit, 2) }} <br/>
+              {{ $t('nodes:') }}
+              {{ formatFixed(userStore.pzJobsTotalDailyProfit, 2) }} <br />
               <template v-if="userStore.workersFarmingCount">
-                farming: {{ formatFixed(userStore.farmingTotalProfit, 2) }} <br/>
+                {{ $t('farming:') }}
+                {{ formatFixed(userStore.farmingTotalProfit, 2) }} <br />
               </template>
               <template v-if="userStore.workersWorkshopCount">
-                workshops: {{ formatFixed(userStore.workshopTotalProfit, 2) }} <br/> 
+                {{ $t('workshops:') }}
+                {{ formatFixed(userStore.workshopTotalProfit, 2) }} <br />
               </template>
               <template v-if="userStore.workersCustomCount">
-                custom: {{ formatFixed(userStore.customTotalProfit, 2) }} <br/> 
+                {{ $t('custom:') }}
+                {{ formatFixed(userStore.customTotalProfit, 2) }} <br />
               </template>
             </p>
           </details>
 
           <details>
-            <summary>Total efficiency: {{ formatFixed(userStore.allJobsDailyProfitPerCp, 3) }}</summary>
-            (M$/day/CP)
+            <summary>
+              {{ $t('Total efficiency:') }}
+              {{ formatFixed(userStore.allJobsDailyProfitPerCp, 3) }}
+            </summary>
+            {{ $t('(M$/day/CP)') }}
             <p class="fsxs">
-              nodes: {{ formatFixed(userStore.pzJobsDailyProfitPerCp, 3) }} <br/> 
+              {{ $t('nodes:') }}
+              {{ formatFixed(userStore.pzJobsDailyProfitPerCp, 3) }} <br />
               <template v-if="userStore.farmingEnable">
-                farming: {{ formatFixed(userStore.farmingJobsDailyProfitPerCp, 3) }} <br/> 
+                {{ $t('farming:') }}
+                {{ formatFixed(userStore.farmingJobsDailyProfitPerCp, 3) }}
+                <br />
               </template>
               <template v-if="userStore.workersWorkshopCount">
-                workshops: {{ formatFixed(userStore.workshopJobsDailyProfitPerCp, 3) }} <br/> 
+                {{ $t('workshops:') }}
+                {{ formatFixed(userStore.workshopJobsDailyProfitPerCp, 3) }}
+                <br />
               </template>
               <template v-if="userStore.workersCustomCount">
-                custom: {{ formatFixed(userStore.customJobsDailyProfitPerCp, 3) }} <br/> 
+                {{ $t('custom:') }}
+                {{ formatFixed(userStore.customJobsDailyProfitPerCp, 3) }}
+                <br />
               </template>
             </p>
           </details>
 
-          <input type="checkbox" id="wr_cb" v-model="userStore.wasmRouting" :disabled="gameStore.wasmLoading">
-            <label for="wr_cb"> wasm routing</label><br/>
-          <span v-if="gameStore.wasmLoading">Loading route planner…</span>
-          <span v-if="gameStore.wasmError" role="alert">{{ gameStore.wasmError }}</span>
+          <input
+            type="checkbox"
+            id="wr_cb"
+            v-model="userStore.wasmRouting"
+            :disabled="gameStore.wasmLoading"
+          />
+          <label for="wr_cb"> {{ $t('wasm routing') }}</label
+          ><br />
+          <span v-if="gameStore.wasmLoading">{{
+            $t('Loading route planner…')
+          }}</span>
+          <span v-if="gameStore.wasmError" role="alert">{{
+            $t(gameStore.wasmError)
+          }}</span>
           <!--<input type="checkbox" v-model="userStore.wasm.tryMoreFrontierRings">
           tryMoreFrontierRings<br/>
           <input 
@@ -642,44 +725,48 @@ export default {
           >ringComboCutoff={{ userStore.wasm.ringComboCutoff }}-->
         </div>
 
-        <div style="clear:both;"></div>
+        <div style="clear: both"></div>
 
         <div id="workerlist">
           <details>
-            <summary>All towns/workers list</summary>
+            <summary>{{ $t('All towns/workers list') }}</summary>
+            {{ $t('show:') }}
+            <label class="switch mauto">
+              <input type="checkbox" v-model="userStore.displayWorkerNames" />
+              <span class="slider"></span> {{ $t('wrkr names') }}
+            </label>
+            <label class="switch mauto">
+              <input type="checkbox" v-model="userStore.displayNodeParent" />
+              <span class="slider"></span> {{ $t('parent node') }}
+            </label>
+            <label class="switch mauto">
+              <input
+                type="checkbox"
+                v-model="userStore.displayWorkerStatsRank"
+                :disabled="userStore.displayWorkerStatsForPz"
+              />
+              <span class="slider"></span> {{ $t('stat ranks') }}
+            </label>
+            <label class="switch mauto">
+              <input
+                type="checkbox"
+                v-model="userStore.displayWorkerStatsForPz"
+                :disabled="userStore.displayWorkerStatsRank"
+              />
+              <span class="slider"></span> {{ $t('stats after skills') }}
+            </label>
+            <label class="switch mauto">
+              <input type="checkbox" v-model="userStore.displayProfitPerCp" />
+              <span class="slider"></span> {{ $t('efficiency') }}
+            </label>
 
-            show:
-            <label class="switch mauto">
-              <input type="checkbox" v-model="userStore.displayWorkerNames">
-              <span class="slider"></span>
-              wrkr names
-            </label>
-            <label class="switch mauto">
-              <input type="checkbox" v-model="userStore.displayNodeParent">
-              <span class="slider"></span>
-              parent node
-            </label>
-            <label class="switch mauto">
-              <input type="checkbox" v-model="userStore.displayWorkerStatsRank" :disabled="userStore.displayWorkerStatsForPz">
-              <span class="slider"></span>
-              stat ranks
-            </label>
-            <label class="switch mauto">
-              <input type="checkbox" v-model="userStore.displayWorkerStatsForPz" :disabled="userStore.displayWorkerStatsRank">
-              <span class="slider"></span>
-              stats after skills
-            </label>
-            <label class="switch mauto">
-              <input type="checkbox" v-model="userStore.displayProfitPerCp">
-              <span class="slider"></span>
-              efficiency
-            </label>
+            <button @click="importDialogVisible = true">
+              {{ $t('import') }}
+            </button>
+            <button @click="fileExport()">{{ $t('export') }}</button>
+            <button v-if="0" @click="hireAll()">{{ $t('hire all') }}</button>
+            <button @click="fireAll()">{{ $t('fire all') }}</button>
 
-            <button @click="importDialogVisible = true">import</button>
-            <button @click="fileExport()">export</button>
-            <button v-if="0" @click="hireAll()">hire all</button>
-            <button @click="fireAll()">fire all</button>
-            
             <table>
               <template v-for="(o, tk) in gameStore.lodgingPerTown">
                 <TownWorkers
@@ -693,15 +780,11 @@ export default {
                   @panToPaPos="panToPaPos"
                 />
               </template>
-
             </table>
           </details>
         </div>
       </div>
-
-      
     </div>
-
   </main>
 </template>
 

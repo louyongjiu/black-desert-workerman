@@ -70,57 +70,85 @@ export default {
 
 <template>
   <details v-if="Object.keys(filteredHouses).length">
-    <summary>Workshops</summary>
+    <summary>{{ $t('Workshops') }}</summary>
 
     <div class="vscroll30">
       <table class="stickyhead">
         <thead>
           <tr>
-            <th>house</th>
-            <th>type</th>
-            <th>workload</th>
-            <th>$/cycle</th>
-            <th>CP</th>
-            <th colspan="3">worker</th>
+            <th>{{ $t('house') }}</th>
+            <th>{{ $t('type') }}</th>
+            <th>{{ $t('workload') }}</th>
+            <th>{{ $t('$/cycle') }}</th>
+            <th>{{ $t('CP') }}</th>
+            <th colspan="3">{{ $t('worker') }}</th>
           </tr>
         </thead>
         <tbody>
-          <template v-for="houses, industry in filteredHouses">
-            
-            <tr v-for="v, hk in houses">
-              <td>
-                {{ gameStore.uloc.char[hk] }} {{ v.label }}
-              </td>
+          <template v-for="(houses, industry) in filteredHouses">
+            <tr v-for="(v, hk) in houses">
+              <td>{{ gameStore.uloc.char[hk] }} {{ v.label }}</td>
               <td>
                 <select v-model="v.industry">
-                  <option v-for="n, k in gameStore.industries" :value="k">{{ n }}</option>
+                  <option v-for="(n, k) in gameStore.industries" :value="k">
+                    {{ $t(n) }}
+                  </option>
                 </select>
               </td>
-              <td><input type="number" class="w5em" v-model.number="v.manualWorkload"/></td>
-              <td><input type="number" class="w5em" v-model.number="v.manualCycleIncome"/></td>
-              <td><input type="number" class="float4" v-model.number="v.manualCp"/></td>
               <td>
-                <div v-for="w in filteredWorkers.filter(w => w.job.hk == hk)">
-                  <button @click="this.$emit('editWorker', w)">edit</button>
+                <input
+                  type="number"
+                  class="w5em"
+                  v-model.number="v.manualWorkload"
+                />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  class="w5em"
+                  v-model.number="v.manualCycleIncome"
+                />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  class="float4"
+                  v-model.number="v.manualCp"
+                />
+              </td>
+              <td>
+                <div v-for="w in filteredWorkers.filter((w) => w.job.hk == hk)">
+                  <button @click="this.$emit('editWorker', w)">
+                    {{ $t('edit') }}
+                  </button>
                   {{ userStore.workerLabel(w) }}
                   @
                   <template v-if="userStore.displayProfitPerCp">
-                    {{ formatFixed(userStore.workerIncomePerCp(w), 2) }} M$/day/CP
+                    {{ formatFixed(userStore.workerIncomePerCp(w), 2) }}
+                    {{ $t('M$/day/CP') }}
                   </template>
                   <template v-else>
-                    {{ formatFixed(userStore.workerIncome(w), 2) }} M$/day
+                    {{ formatFixed(userStore.workerIncome(w), 2) }}
+                    {{ $t('M$/day') }}
                   </template>
-                  <button @click="w.job = null">stop</button>
+                  <button @click="w.job = null">{{ $t('stop') }}</button>
                 </div>
 
                 <div v-if="v.industry == 'mass'">
-                  <button @click="this.$emit('selectWorker', Number(hk))">add</button>
+                  <button @click="this.$emit('selectWorker', Number(hk))">
+                    {{ $t('add') }}
+                  </button>
                 </div>
 
-                <div v-else-if="filteredWorkers.filter(w => w.job.hk == hk).length == 0">
-                  <button @click="this.$emit('selectWorker', Number(hk))">send</button>
+                <div
+                  v-else-if="
+                    filteredWorkers.filter((w) => w.job.hk == hk).length == 0
+                  "
+                >
+                  <button @click="this.$emit('selectWorker', Number(hk))">
+                    {{ $t('send') }}
+                  </button>
                 </div>
-                
               </td>
             </tr>
           </template>

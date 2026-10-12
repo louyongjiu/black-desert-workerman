@@ -354,8 +354,8 @@ export default {
     <div id="menu">
       <div style="display: none;">{{ dropratesStore.selected_pzk }} {{ dropratesStore.selected_ik }} {{ dropratesStore.selected_specie }}</div>
       
-      <p class="fsxs">Left: droprate parameters currently used in workerman</p>
-      <p class="fsxs">Right: observations used to find out current serverside parameters</p>
+      <p class="fsxs">{{ $t("Left: droprate parameters currently used in workerman") }}</p>
+      <p class="fsxs">{{ $t("Right: observations used to find out current serverside parameters") }}</p>
 
       <template v-for="nodedata, pzk in alldata">
         <RouterLink v-if="pzk in gameStore.plantzoneStatic" tag="a" :to="{path: './', hash: '#node' + pzk}">
@@ -367,9 +367,9 @@ export default {
             <th class="fsxs">n</th>
             <th class="fsxs">npᵁ</th>
             <th class="fsxs">npᴸ</th>
-            <th class="fsxs">item</th>
-            <th class="fsxs">normal</th>
-            <th class="fsxs">giant</th>
+            <th class="fsxs">{{ $t("item") }}</th>
+            <th class="fsxs">{{ $t("normal") }}</th>
+            <th class="fsxs">{{ $t("giant") }}</th>
           </tr>
           <tr v-for="nodeitemdata, ik in nodedata">
             <td class="fsxs">
@@ -397,10 +397,10 @@ export default {
             </td>
             <td v-for="specie in ['normal', 'giant']" class="center">
               <template v-if="specie in nodeitemdata">
-                <button :title="`item ${ik} ${specie}`" v-if="pzk != dropratesStore.selected_pzk || ik != dropratesStore.selected_ik || specie != dropratesStore.selected_specie" @click="activate(pzk, ik, specie)">
+                <button :title="`${$t(&quot;item &quot;)}${ik} ${specie}`" v-if="pzk != dropratesStore.selected_pzk || ik != dropratesStore.selected_ik || specie != dropratesStore.selected_specie" @click="activate(pzk, ik, specie)">
                   {{ Object.values(nodeitemdata[specie]).flat().length }} 
                 </button>
-                <button :title="`item ${ik} ${specie}`" v-else class="pressed">
+                <button :title="`${$t(&quot;item &quot;)}${ik} ${specie}`" v-else class="pressed">
                   {{ Object.values(nodeitemdata[specie]).flat().length }}
                 </button>
               </template>
@@ -413,21 +413,19 @@ export default {
     <div id="content">
 
       <details>
-        <summary>Dataset: size N = {{ stats.len }}, sum {{ stats.sum }}, 
-          mean M = {{ formatFixed(stats.mean, 3) }}±{{ formatFixed(1.96 * stats.meanErr, 3) }},
+        <summary>{{ $t("Dataset: size N =") }} {{ stats.len }}{{ $t(", sum") }} {{ stats.sum }}{{ $t(", mean M =") }} {{ formatFixed(stats.mean, 3) }}±{{ formatFixed(1.96 * stats.meanErr, 3) }},
           <template v-if="this.stats.minLuck == this.stats.maxLuck">
             {{ this.stats.maxLuck }}
           </template>
           <template v-else>
             {{ formatFixed(this.stats.minLuck, 2) }}…{{ formatFixed(this.stats.maxLuck, 2) }}
           </template>🍀 → 
-          λ ∈ {{ formatFixed(stats.lucky.shareLo*100, 2) }}…{{ formatFixed(stats.lucky.shareHi*100, 2) }}% cycles were lucky
-        </summary>
+          λ ∈ {{ formatFixed(stats.lucky.shareLo*100, 2) }}…{{ formatFixed(stats.lucky.shareHi*100, 2) }}{{ $t("% cycles were lucky") }} </summary>
 
         <div>
           <table>
             <tr>
-              <td>mute</td><td>luck</td>
+              <td>{{ $t("mute") }}</td><td>{{ $t("luck") }}</td>
             </tr>
             <tr v-for="drops, luck in stats.dataRaw" :class="{ strike: hide_buckets[luck] }">
               <td class="center"><input v-model="hide_buckets[luck]" type="checkbox"></td>
@@ -437,9 +435,7 @@ export default {
           </table>
         </div>
 
-        <p>
-          Possible luck procs observed with 
-          <select v-model="generalSigmas">
+        <p> {{ $t("Possible luck procs observed with") }} <select v-model="generalSigmas">
             <option value="1.5">±1.5σ</option>
             <option value="2">±2σ</option>
             <option value="2.5">±2.5σ</option>
@@ -447,17 +443,15 @@ export default {
             <option value="3.5">±3.5σ</option>
             <option value="4">±4σ</option>
           </select>
-          ({{ formatFixed(stats.generalConfidence, 2) }}%)
-          confidence:
-          <table>
-            <tr><th></th><th>min</th><th>max</th></tr>
+          ({{ formatFixed(stats.generalConfidence, 2) }}{{ $t("%) confidence:") }} <table>
+            <tr><th></th><th>{{ $t("min") }}</th><th>{{ $t("max") }}</th></tr>
             <tr>
-              <td>count</td>
+              <td>{{ $t("count") }}</td>
               <td>{{ formatFixed(stats.lucky.lenLo, 2) }}</td>
               <td>{{ formatFixed(stats.lucky.lenHi, 2) }}</td>
             </tr>
             <tr>
-              <td>% of total</td>
+              <td>{{ $t("% of total") }}</td>
               <td>{{ formatFixed(stats.lucky.shareLo*100, 2) }}</td>
               <td>{{ formatFixed(stats.lucky.shareHi*100, 2) }}</td>
             </tr>
@@ -466,17 +460,16 @@ export default {
       </details>
 
       <div id="settings">
-        <!--<input type="checkbox" v-model="dropratesStore.usePooling">Pooling-->
-        Use model:<br/>
+        <!--<input type="checkbox" v-model="dropratesStore.usePooling">Pooling--> {{ $t("Use model:") }}<br/>
       
         <input type="radio" id="option1" value="a" v-model="dropratesStore.selected_model">
-        <label for="option1">A. Same item drop regardless of luck (plants, lumber, ores)<br/></label>
+        <label for="option1">{{ $t("A. Same item drop regardless of luck (plants, lumber, ores)") }}<br/></label>
         
         <input type="radio" id="option2" value="b" v-model="dropratesStore.selected_model">
-        <label for="option2">B. Item only drops when luck procs (sacks, lumbering rares)<br/></label>
+        <label for="option2">{{ $t("B. Item only drops when luck procs (sacks, lumbering rares)") }}<br/></label>
         
         <input type="radio" id="option3" value="c" v-model="dropratesStore.selected_model">
-        <label for="option3">C. Different drops when luck procs and when not (eggs, honey)<br/></label>
+        <label for="option3">{{ $t("C. Different drops when luck procs and when not (eggs, honey)") }}<br/></label>
       </div>
 
       <div id="modelA" v-if="dropratesStore.selected_model=='a'" style="float:left;">

@@ -268,7 +268,7 @@ export default {
         series: [
           {
             type: 'bar',
-            name: 'observed',
+            name: this.$t("observed"),
             datasetIndex: 0,
             encode: {
               x: 0, y: 1,
@@ -280,7 +280,7 @@ export default {
           },
           {
             type: 'line',
-            name: 'model',
+            name: this.$t("model"),
             datasetIndex: 1,
             encode: { 
               x: 0, y: 1,
@@ -424,35 +424,55 @@ export default {
 </script>
 
 <template>
-  <span class="title">Model A</span>
-  <span>: all points were taken from a single distribution with <i>np = M</i></span>
-  <p><input type="checkbox" v-model="isGiant"> with giant bonus</p>
-  <p v-if="isGiant">This causes gaps in Unlucky distrubution because giantValue=floor(1.684*ordinaryValue);</p>
-  
+  <span class="title">{{ $t('Model A') }}</span>
+  <span
+    >{{ $t(': all points were taken from a single distribution with') }}
+    <i>np = M</i></span
+  >
+  <p>
+    <input type="checkbox" v-model="isGiant" /> {{ $t('with giant bonus') }}
+  </p>
+  <p v-if="isGiant">
+    {{
+      $t(
+        'This causes gaps in Unlucky distrubution because giantValue=floor(1.684*ordinaryValue);'
+      )
+    }}
+  </p>
+
   <div>
-    <div style="float:left;">
-      Sweeping through <i>np</i> values in 
-      {{ formatFixed(this.sweepRange.lo, 2) }}…{{ formatFixed(this.sweepRange.hi, 2) }}
-      range:
+    <div style="float: left">
+      {{ $t('Sweeping through') }} <i>np</i> {{ $t('values in') }}
+      {{ formatFixed(this.sweepRange.lo, 2) }}…{{
+        formatFixed(this.sweepRange.hi, 2)
+      }}
+      {{ $t('range:') }}
       <div id="chartSweep" v-if="modelASweep.result.np">
         <v-chart :option="makeChartASweep" />
       </div>
-      <div v-else>
-        [failed]
-      </div>
-      <div style="padding:1em;">
+      <div v-else>{{ $t('[failed]') }}</div>
+      <div style="padding: 1em">
         <table>
-          <tr><th></th><th>np</th><th>n</th><th>MSE</th><th v-if="0">χ²</th><th>p-val</th></tr>
+          <tr>
+            <th></th>
+            <th>np</th>
+            <th>n</th>
+            <th>MSE</th>
+            <th v-if="0">χ²</th>
+            <th>p-val</th>
+          </tr>
           <tr :class="{ strike: stats.aBad }" v-if="modelASweep.result">
-            <td>Best fit:</td>
+            <td>{{ $t('Best fit:') }}</td>
             <td>{{ formatFixed(modelASweep.result.np, 4) }}</td>
             <td>{{ formatFixed(modelASweep.result.n) }}</td>
             <td>{{ formatFixed(modelASweep.result.loss.mse, 2) }}</td>
-            <td v-if="0">{{ formatFixed(modelASweep.result.loss.chisq, 2) }}</td>
+            <td v-if="0">
+              {{ formatFixed(modelASweep.result.loss.chisq, 2) }}
+            </td>
             <td>{{ formatFixed(modelASweep.result.loss.pval, 4) }}</td>
           </tr>
           <tr>
-            <td>Manual:</td>
+            <td>{{ $t('Manual:') }}</td>
             <td>{{ formatFixed(selected_np, 4) }}</td>
             <td>{{ selected_n }}</td>
             <td>{{ formatFixed(modelA.loss.mse, 2) }}</td>
@@ -460,34 +480,69 @@ export default {
             <td>{{ formatFixed(modelA.loss.pval, 4) }}</td>
           </tr>
         </table>
-        np: <input type="range" @input="event => applySelectedNP(Number(event.target.value))" :value="selected_np" :min="stats.min" :max="stats.max" :step="0.01" class="vmid">
-        n: <input type="range" @input="event => applySelectedN(Number(event.target.value))" :value="selected_n" :min="stats.max" :max="200" :step="1" class="vmid">
-        <br/>
+        np:
+        <input
+          type="range"
+          @input="(event) => applySelectedNP(Number(event.target.value))"
+          :value="selected_np"
+          :min="stats.min"
+          :max="stats.max"
+          :step="0.01"
+          class="vmid"
+        />
+        n:
+        <input
+          type="range"
+          @input="(event) => applySelectedN(Number(event.target.value))"
+          :value="selected_n"
+          :min="stats.max"
+          :max="200"
+          :step="1"
+          class="vmid"
+        />
+        <br />
       </div>
     </div>
-    
-    <div id="chartHisto" style="float:left;">
+
+    <div id="chartHisto" style="float: left">
       <template v-if="modelA.bell">
         <v-chart :option="makeChartHist" />
       </template>
       <template v-else>
-        [failed to build the requested distribution np={{ modelA.np }} n={{ modelA.n }} ]
+        {{ $t('[failed to build the requested distribution np=')
+        }}{{ modelA.np }} n={{ modelA.n }} ]
       </template>
     </div>
 
+    <div style="clear: both"></div>
 
-    <div style="clear:both;"></div>
-
-    <br/>
-  <p class="fsxs">MSE: <i>Σ (observed - model)²</i>, discard nothing ← this is used for fitting</p>
-  <template v-if="isBinary">
-    <p class="fsxs">p-val: <a href="https://en.wikipedia.org/wiki/Binomial_test">exact</a></p>
-  </template>
-  <template v-else>
-    <p class="fsxs">χ²: discard bins where model &lt; 3, then <i>Σ (observed - model)² / model</i></p>
-    <p class="fsxs">p-val: <i>1 - chisquare.cdf(χ², bins - 1 - dof)</i> ← on small datasets this depends too much on previous step discards</p>
-  </template>
-
+    <br />
+    <p class="fsxs">
+      MSE: <i>{{ $t('Σ (observed - model)²') }}</i
+      >{{ $t(', discard nothing ← this is used for fitting') }}
+    </p>
+    <template v-if="isBinary">
+      <p class="fsxs">
+        p-val:
+        <a href="https://en.wikipedia.org/wiki/Binomial_test">{{
+          $t('exact')
+        }}</a>
+      </p>
+    </template>
+    <template v-else>
+      <p class="fsxs">
+        {{ $t('χ²: discard bins where model < 3, then') }}
+        <i>{{ $t('Σ (observed - model)² / model') }}</i>
+      </p>
+      <p class="fsxs">
+        p-val: <i>1 - chisquare.cdf(χ², bins - 1 - dof)</i>
+        {{
+          $t(
+            '← on small datasets this depends too much on previous step discards'
+          )
+        }}
+      </p>
+    </template>
   </div>
 </template>
 

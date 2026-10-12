@@ -143,10 +143,8 @@ export default {
 
 
 <template>
-  via Data
-  <button @click="move(10000)">10000</button>
-  <button @click="move(-10000)">-10000</button>
-  direct
+  {{ $t('via Data') }} <button @click="move(10000)">10000</button>
+  <button @click="move(-10000)">-10000</button> {{ $t('direct') }}
   <button @click="moveDirect(10000)">10000</button>
   <button @click="moveDirect(-10000)">-10000</button>
   <div class="cw">

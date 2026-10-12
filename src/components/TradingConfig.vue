@@ -213,7 +213,7 @@ export default {
             if (aoc != 1) {
               makeCost.val /= aoc
               makeCost.desc += `----------------------\n`
-              makeCost.desc += `divided by ${aoc}\n`
+              makeCost.desc += `${this.$t('divided by')} ${aoc}\n`
             }
 
             //const workshopCostPerCrate = workshopCostDaily * perf.workers / perf.completionsPerDay
@@ -230,10 +230,10 @@ export default {
               ? routeCp * perf.completionsPerDay / this.townStat[origin].completionsPerDayDoubleEnded
               : routeCp * perf.completionsPerDay * tradeInfo.crateWeight / transportLtPerDay
             const routeCpDesc = this.userStore.tradeRouteAlwaysOn[origin]
-              ? `${routeCp}CP * ${formatFixed(perf.completionsPerDay)} / ${formatFixed(this.townStat[origin].completionsPerDayDoubleEnded)} crates`
-              : `${routeCp}CP * ${formatFixed(perf.completionsPerDay * tradeInfo.crateWeight / transportLtPerDay * 100, 3)}% utilization`
+              ? `${routeCp}CP * ${formatFixed(perf.completionsPerDay)} / ${formatFixed(this.townStat[origin].completionsPerDayDoubleEnded)} ${this.$t('crates')}`
+              : `${routeCp}CP * ${formatFixed(perf.completionsPerDay * tradeInfo.crateWeight / transportLtPerDay * 100, 3)}${this.$t('% utilization')}`
             tradeInfo.cp = this.userStore.tradeInfraCp[origin] / this.townStat[origin].workers * perf.workers + tradeInfo.routeCp
-            tradeInfo.cpDesc = `${this.userStore.tradeInfraCp[origin]}CP / ${this.townStat[origin].workers} x ${perf.workers} workers + ${routeCpDesc}`
+            tradeInfo.cpDesc = `${this.userStore.tradeInfraCp[origin]}CP / ${this.townStat[origin].workers} x ${perf.workers} ${this.$t('workers +')} ${routeCpDesc}`
             tradeInfo.eff = tradeInfo.dailyProfit / tradeInfo.cp
 
             const prevRow = ret.towns[origin][ret.towns[origin].length - 1]
@@ -427,88 +427,101 @@ export default {
 
 <template>
   <div class="container">
-
     <!--
     M$/CP/day: <input type="number" class="w3em" step="0.01" v-model.number="cpCost">
     -->
-    
   </div>
-  
+
   <div class="container">
     <div class="left">
+      <h3 style="display: inline">{{ $t('Active recipes') }}</h3>
 
-      <h3 style="display: inline">Active recipes</h3>
-      
       <table>
         <thead>
           <tr>
-            <th>out</th>
-            <th>sell $</th>
+            <th>{{ $t('out') }}</th>
+            <th>{{ $t('sell $') }}</th>
             <th>
-              <abbr class="tooltip" title="workers">
-                w
+              <abbr class="tooltip" :title="$t('workers')">
+                {{ $t('w') }}
               </abbr>
             </th>
             <th>
-              <abbr class="tooltip" title="crates/day">
-                c/d
+              <abbr class="tooltip" :title="$t('crates/day')">
+                {{ $t('c/d') }}
               </abbr>
             </th>
             <th>
-              <abbr class="tooltip" title="thrifty %">
-                🧪
-              </abbr>
+              <abbr class="tooltip" :title="$t('thrifty %')"> 🧪 </abbr>
             </th>
-            <th>make $</th>
-            <th>wagon $</th>
-            <th>profit $</th>
+            <th>{{ $t('make $') }}</th>
+            <th>{{ $t('wagon $') }}</th>
+            <th>{{ $t('profit $') }}</th>
             <th>
-              ROI
-              <abbr class="tooltip" title="profit / (make + wagon)">ℹ</abbr>
+              {{ $t('ROI') }}
+              <abbr class="tooltip" :title="$t('profit / (make + wagon)')"
+                >ℹ</abbr
+              >
             </th>
-            <th>M$/day</th>
+            <th>{{ $t('M$/day') }}</th>
             <th>
-              CP
-              <abbr class="tooltip" title="infra + connection">ℹ</abbr>
+              {{ $t('CP') }}
+              <abbr class="tooltip" :title="$t('infra + connection')">ℹ</abbr>
             </th>
-            <th>M$/day/CP</th>
+            <th>{{ $t('M$/day/CP') }}</th>
           </tr>
         </thead>
         <tbody>
-          <template v-for="rows, origin in table.towns">
+          <template v-for="(rows, origin) in table.towns">
             <tr>
               <td colspan="2" class="tac">
                 {{ gameStore.uloc.node[origin] }}
               </td>
               <td colspan="4" class="tac">
-                <abbr class="tooltip" title="total town infrastructure 
-(workshops, storage, house connections)
-ON TOP of the houses autoassigned 
-on Home page (lodging is autoassigned)">infra</abbr>{{  }}
-                <input type="number" class="w33em" v-model.number="userStore.tradeInfraCp[origin]">
-                CP
+                <abbr
+                  class="tooltip"
+                  :title="
+                    $t(
+                      'total town infrastructure \n(workshops, storage, house connections)\nON TOP of the houses autoassigned \non Home page (lodging is autoassigned)'
+                    )
+                  "
+                  >{{ $t('infra') }}</abbr
+                >{{}}
+                <input
+                  type="number"
+                  class="w33em"
+                  v-model.number="userStore.tradeInfraCp[origin]"
+                />
+                {{ $t('CP') }}
               </td>
               <td colspan="6">
                 <select v-model="userStore.tradeDestinations[origin]">
-                  <option v-for="e in townSortedDestinations(origin)" :key="e.destination" :value="e.destination">
+                  <option
+                    v-for="e in townSortedDestinations(origin)"
+                    :key="e.destination"
+                    :value="e.destination"
+                  >
                     {{ gameStore.uloc.node[e.destination] }}
-                    {{ formatFixed(e.distanceBonus*100, 2) }}%
+                    {{ formatFixed(e.distanceBonus * 100, 2) }}%
                     {{ formatFixed(30 * e.costPerLt) }}$
                   </option>
                 </select>
-                
+
                 <template v-if="townStat[origin].reverseConnection == false">
-                  cost
-                  <input 
+                  {{ $t('cost') }}
+                  <input
                     v-model.number="userStore.tradeRouteCp[origin]"
-                    type="number" 
-                    class="w3em">
-                  CP
-                  
-                  <span class="spacer"></span>
-                  <input type="checkbox" v-model="userStore.tradeRouteAlwaysOn[origin]"> always on
+                    type="number"
+                    class="w3em"
+                  />
+                  {{ $t('CP') }} <span class="spacer"></span>
+                  <input
+                    type="checkbox"
+                    v-model="userStore.tradeRouteAlwaysOn[origin]"
+                  />
+                  {{ $t('always on') }}
                 </template>
-                <template v-else>(reusing)</template>
+                <template v-else>{{ $t('(reusing)') }}</template>
               </td>
             </tr>
 
@@ -519,7 +532,7 @@ on Home page (lodging is autoassigned)">infra</abbr>{{  }}
                     <template v-if="gameStore.craftInfo[row.rcp].aoc != 1">
                       {{ gameStore.craftInfo[row.rcp].aoc }}
                     </template>
-                    <ItemIcon :ik="ik"/>
+                    <ItemIcon :ik="ik" />
                   </template>
                 </template>
                 <template v-else>
@@ -527,7 +540,9 @@ on Home page (lodging is autoassigned)">infra</abbr>{{  }}
                 </template>
               </td>
               <td class="tar" v-if="!row.collapsed" :rowspan="row.rowspan">
-                <abbr class="tooltip" :title="row.tradeInfo.sellPriceDesc">{{ formatFixed(row.tradeInfo.sellPrice) }}</abbr>
+                <abbr class="tooltip" :title="row.tradeInfo.sellPriceDesc">{{
+                  formatFixed(row.tradeInfo.sellPrice)
+                }}</abbr>
               </td>
               <td class="tac">
                 {{ row.perf.workers }}
@@ -539,23 +554,26 @@ on Home page (lodging is autoassigned)">infra</abbr>{{  }}
                 {{ row.thriftyPercent }}
               </td>
               <td class="tar">
-                <abbr class="tooltip" :title="row.makeCost.desc">{{ formatFixed(row.makeCost.val) }}</abbr>
+                <abbr class="tooltip" :title="row.makeCost.desc">{{
+                  formatFixed(row.makeCost.val)
+                }}</abbr>
               </td>
               <td class="tar">
                 {{ formatFixed(row.tradeInfo.transportFee) }}
               </td>
               <td class="tar">
-                <abbr class="tooltip" :title="row.tradeInfo.deltaDesc">{{ formatFixed(row.tradeInfo.delta) }}</abbr>
+                <abbr class="tooltip" :title="row.tradeInfo.deltaDesc">{{
+                  formatFixed(row.tradeInfo.delta)
+                }}</abbr>
               </td>
-              <td class="tar">
-                {{ formatFixed(row.tradeInfo.roi * 100) }}%
-              </td>
+              <td class="tar">{{ formatFixed(row.tradeInfo.roi * 100) }}%</td>
               <td class="tar">
                 {{ formatFixed(row.tradeInfo.dailyProfit, 2) }}
               </td>
               <td class="tar">
                 <abbr class="tooltip" :title="row.tradeInfo.cpDesc">
-                  {{ formatFixed(row.tradeInfo.cp, 2) }}</abbr>
+                  {{ formatFixed(row.tradeInfo.cp, 2) }}</abbr
+                >
               </td>
               <td class="tar">
                 {{ formatFixed(row.tradeInfo.eff, 3) }}
@@ -566,38 +584,44 @@ on Home page (lodging is autoassigned)">infra</abbr>{{  }}
       </table>
 
       <div class="slider-container">
-        Trading&nbsp;
-        <input type="range" v-model.number="userStore.tradingLevel" min="1" max="140" step="1" >
-        &nbsp;{{ tradingLevelString }} → {{ formatFixed(userStore.bargainBonus * 100, 1) }}% bargain
+        {{ $t('Trading') }} 
+        <input
+          type="range"
+          v-model.number="userStore.tradingLevel"
+          min="1"
+          max="140"
+          step="1"
+        />
+        &nbsp;{{ tradingLevelString }} →
+        {{ formatFixed(userStore.bargainBonus * 100, 1) }}{{ $t('% bargain') }}
       </div>
-      <div style="float: right;">
-        <button @click="copyToWorkshops()" title="industry, M$/day, CP">copy to workshops</button>
+      <div style="float: right">
+        <button @click="copyToWorkshops()" :title="$t('industry, M$/day, CP')">
+          {{ $t('copy to workshops') }}
+        </button>
       </div>
-      <br/>
-      Total:
-      {{ formatFixed(table.total.silver/1000000, 1) }} M$/day,
-      {{ formatFixed(table.total.CP, 2) }} CP,
-      {{ formatFixed(table.total.eff, 3) }} M$/day/CP
-
-
-
+      <br />
+      {{ $t('Total:') }} {{ formatFixed(table.total.silver / 1000000, 1) }}
+      {{ $t('M$/day,') }} {{ formatFixed(table.total.CP, 2) }} {{ $t('CP,') }}
+      {{ formatFixed(table.total.eff, 3) }} {{ $t('M$/day/CP') }}
       <details>
-        <summary>Wagons</summary>
-        Order issuing hours: <input type="number" class="w3em" v-model.number="pcHours">
-        <br/>
+        <summary>{{ $t('Wagons') }}</summary>
+        {{ $t('Order issuing hours:') }}
+        <input type="number" class="w3em" v-model.number="pcHours" />
+        <br />
         <!--At over 100% capacity, cost of transporting 214kLT:-->
         <table>
           <thead>
             <tr>
-              <th>route</th>
-              <th>duration</th>
-              <th>needed</th>
-              <th>capacity</th>
-              <th>utilization</th>
+              <th>{{ $t('route') }}</th>
+              <th>{{ $t('duration') }}</th>
+              <th>{{ $t('needed') }}</th>
+              <th>{{ $t('capacity') }}</th>
+              <th>{{ $t('utilization') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="tinfo, origDest in table.transport">
+            <tr v-for="(tinfo, origDest) in table.transport">
               <td>{{ origDest }}</td>
               <td>{{ tinfo.duration }}</td>
               <td class="tar">{{ formatFixed(tinfo.needWagons, 2) }}</td>
@@ -613,32 +637,40 @@ on Home page (lodging is autoassigned)">infra</abbr>{{  }}
               </td>
             </tr>
           </tbody>
-          </table>
+        </table>
       </details>
-
     </div>
 
     <div class="right">
-      <h3>Input prices</h3>
+      <h3>{{ $t('Input prices') }}</h3>
       <table>
         <thead>
           <tr>
-            <th>item</th>
-            <th>custom</th>
-            <th>buy</th>
-            <th>eff</th>
+            <th>{{ $t('item') }}</th>
+            <th>{{ $t('custom') }}</th>
+            <th>{{ $t('buy') }}</th>
+            <th>{{ $t('eff') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="ik in usedInputItems">
             <td>
-              <ItemIcon :ik="Number(ik)"/>
+              <ItemIcon :ik="Number(ik)" />
             </td>
             <td>
-              <PriceInput v-model="userStore.customPrices[ik]" :defaultValue="marketStore.apiPrices[ik] || marketStore.prices[ik]"/>
+              <PriceInput
+                v-model="userStore.customPrices[ik]"
+                :defaultValue="
+                  marketStore.apiPrices[ik] || marketStore.prices[ik]
+                "
+              />
             </td>
             <td class="tac">
-              <input type="checkbox" :disabled="ik in gameStore.vendorPrices" v-model="userStore.keepItems[ik]">
+              <input
+                type="checkbox"
+                :disabled="ik in gameStore.vendorPrices"
+                v-model="userStore.keepItems[ik]"
+              />
             </td>
             <td>
               {{ formatFixed(marketStore.prices[ik]) }}
@@ -648,8 +680,6 @@ on Home page (lodging is autoassigned)">infra</abbr>{{  }}
       </table>
     </div>
   </div>
-  
-
 </template>
 
 <style scoped>

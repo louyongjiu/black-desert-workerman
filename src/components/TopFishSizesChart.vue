@@ -88,16 +88,16 @@ export default {
       const data = this.survivalData
       const personalData = this.personalSurvivalData
       const curves = [
-        { name: 'model', data: this.theoreticalSurvivalData, expected: true },
-        { name: 'obs.personal', data: personalData },
-        { name: 'obs.region', data },
+        { id: 'model', name: this.$t("model"), data: this.theoreticalSurvivalData, expected: true },
+        { id: 'obs.personal', name: this.$t("obs.personal"), data: personalData },
+        { id: 'obs.region', name: this.$t("obs.region"), data },
       ]
       const palette = unref(this.chartTheme)?.color ?? ['#5470c6', '#91cc75', '#fac858']
       const yMax = Math.ceil(Math.min(this.fullYMax, this.zoomedYMax ?? this.fullYMax))
       return {
         animation: false,
         color: [palette[1], palette[0], palette[2]],
-        legend: { data: ['model', 'obs.personal', 'obs.region'] },
+        legend: { data: curves.map(curve => curve.name) },
         grid: { left: 46, right: 14, top: 30, bottom: 25 },
         tooltip: {
           trigger: 'axis',
@@ -108,10 +108,10 @@ export default {
             if (!Number.isFinite(size)) return ''
             const counts = params.map(item => {
               const count = item.data[1].toLocaleString(undefined, { maximumFractionDigits: 2 })
-              const unit = curves[item.seriesIndex]?.expected ? 'expected updates' : 'updates'
+              const unit = this.$t(curves[item.seriesIndex]?.expected ? 'expected updates' : 'updates')
               return `${item.marker} ${item.seriesName}: ${count} ${unit}`
             })
-            return [`size ≥ ${size.toFixed(3)}`, ...counts].join('<br>')
+            return [`${this.$t('size ≥ ')}${size.toFixed(3)}`, ...counts].join('<br>')
           },
         },
         xAxis: {
@@ -125,7 +125,7 @@ export default {
           max: null,
         },
         yAxis: {
-          name: 'updates',
+          name: this.$t("updates"),
           nameGap: 11,
           type: this.logarithmicYAxis ? 'log' : 'value',
           min: 1,
@@ -144,7 +144,7 @@ export default {
           disabled: true,
         }],
         series: curves.map(curve => ({
-          id: curve.name,
+          id: curve.id,
           name: curve.name,
           type: 'line',
           data: curve.data,
@@ -162,16 +162,22 @@ export default {
 <template>
   <section class="ranking-chart">
     <template v-if="survivalData.length || personalSurvivalData.length">
-      Leaderboard: {{ itemkeyCount }} species, {{ personalAnnouncementsSorted.length }} personal, {{ sizes.length }} region
+      {{ $t('Leaderboard:') }} {{ itemkeyCount }} {{ $t('species,') }}
+      {{ personalAnnouncementsSorted.length }} {{ $t('personal,') }}
+      {{ sizes.length }} {{ $t('region') }}
       <label>
-        <input v-model="logarithmicYAxis" type="checkbox">
+        <input v-model="logarithmicYAxis" type="checkbox" />
         log(Y)
       </label>
       <div @wheel.prevent="zoomYAxis">
-        <v-chart :option="chartOption" :update-options="{ lazyUpdate: true }" autoresize />
+        <v-chart
+          :option="chartOption"
+          :update-options="{ lazyUpdate: true }"
+          autoresize
+        />
       </div>
     </template>
-    <p v-else>No leaderboard sizes for this selection.</p>
+    <p v-else>{{ $t('No leaderboard sizes for this selection.') }}</p>
   </section>
 </template>
 

@@ -583,17 +583,17 @@ export default {
 
 
 <template>
-  
   <canvas id="deck-canvas" ref="canvas"></canvas>
-  <div id="hack">{{ iconsCalc.length }} icons</div>
+  <div id="hack">{{ iconsCalc.length }} {{ $t('icons') }}</div>
 
   <div class="topcenter" v-if="userStore.mapHideInactive">
-    {{ hiddenNodesCount }} inactive nodes hidden (<a href="#" @click="userStore.mapHideInactive = false">show</a>)
+    {{ hiddenNodesCount }} {{ $t('inactive nodes hidden (')
+    }}<a href="#" @click="userStore.mapHideInactive = false">{{ $t('show') }}</a
+    >)
   </div>
 
   <!--<button @click="move(10000)">10000</button>
   <button @click="move(-10000)">-10000</button>-->
-
 </template>
 
 <style scoped>

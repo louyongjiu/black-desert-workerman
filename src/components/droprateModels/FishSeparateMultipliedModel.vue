@@ -193,7 +193,7 @@ export default {
             : Math.max(this.avg_size * 4, this.achievableRange.max),
         },
         yAxis: {
-          name: '% of total',
+          name: this.$t("% of total"),
           nameGap: 11,
           axisLine: { onZero: false },
           axisLabel: { formatter: value => formatFixed(value, 2) + '%' },
@@ -206,9 +206,9 @@ export default {
           containLabel: true,
         },
         series: [
-          { name: 'observed', type: 'bar', encode: { x: 0, y: 1 } },
+          { name: this.$t("observed"), type: 'bar', encode: { x: 0, y: 1 } },
           {
-            name: 'model',
+            name: this.$t("model"),
             type: 'line',
             datasetIndex: 1,
             encode: { x: 0, y: 1 },
@@ -247,40 +247,87 @@ export default {
 
 <template>
   <div class="controls">
-    <span>r1 ~ Uniform(</span>
-    <input v-model.number="min1" type="number" min="0" step="0.01" aria-label="r1 minimum">
+    <span>{{ $t('r1 ~ Uniform(') }}</span>
+    <input
+      v-model.number="min1"
+      type="number"
+      min="0"
+      step="0.01"
+      :aria-label="$t('r1 minimum')"
+    />
     <span>,</span>
-    <input v-model.number="max1" type="number" min="0" step="0.01" aria-label="r1 maximum">
+    <input
+      v-model.number="max1"
+      type="number"
+      min="0"
+      step="0.01"
+      :aria-label="$t('r1 maximum')"
+    />
     <span>)</span>
   </div>
   <div class="controls">
-    <span>r2 ~ Uniform(</span>
-    <input v-model.number="min2" type="number" min="0" step="0.01" aria-label="r2 minimum">
+    <span>{{ $t('r2 ~ Uniform(') }}</span>
+    <input
+      v-model.number="min2"
+      type="number"
+      min="0"
+      step="0.01"
+      :aria-label="$t('r2 minimum')"
+    />
     <span>,</span>
-    <input v-model.number="max2" type="number" min="0" step="0.01" aria-label="r2 maximum">
+    <input
+      v-model.number="max2"
+      type="number"
+      min="0"
+      step="0.01"
+      :aria-label="$t('r2 maximum')"
+    />
     <span>)</span>
   </div>
   <div class="controls">
-    <span>r3 ~ Uniform(</span>
-    <input v-model.number="min3" type="number" min="0" step="0.01" aria-label="r3 minimum">
+    <span>{{ $t('r3 ~ Uniform(') }}</span>
+    <input
+      v-model.number="min3"
+      type="number"
+      min="0"
+      step="0.01"
+      :aria-label="$t('r3 minimum')"
+    />
     <span>,</span>
-    <input v-model.number="max3" type="number" min="0" step="0.01" aria-label="r3 maximum">
+    <input
+      v-model.number="max3"
+      type="number"
+      min="0"
+      step="0.01"
+      :aria-label="$t('r3 maximum')"
+    />
     <span>)</span>
   </div>
 
   <div class="summary">
-    mean M = {{ formatFixed(theoreticalMean, 3) }},
-    achievable range: min = {{ formatFixed(achievableRange.min, 3) }},
-    max = {{ formatFixed(achievableRange.max, 3) }}
+    {{ $t('mean M =') }} {{ formatFixed(theoreticalMean, 3)
+    }}{{ $t(', achievable range: min =') }}
+    {{ formatFixed(achievableRange.min, 3) }}{{ $t(', max =') }}
+    {{ formatFixed(achievableRange.max, 3) }}
     <span
       v-if="stats.len > 0"
       role="img"
-      :aria-label="coversObservedRange ? 'covers observed range' : 'does not cover observed range'"
-    >{{ coversObservedRange ? '✓' : '✗' }}</span>
+      :aria-label="
+        coversObservedRange
+          ? $t('covers observed range')
+          : $t('does not cover observed range')
+      "
+      >{{ coversObservedRange ? '✓' : '✗' }}</span
+    >
   </div>
 
   <div class="chart">
-    <v-chart ref="chart" :option="chartOption" :update-options="{ notMerge: false }" autoresize />
+    <v-chart
+      ref="chart"
+      :option="chartOption"
+      :update-options="{ notMerge: false }"
+      autoresize
+    />
   </div>
 
   <pre><code>{{ codeSnippet }}</code></pre>

@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => ({
     //minify: false,
     emptyOutDir: false,
   },
+  worker: { format: 'es' },
+  optimizeDeps: { exclude: ['highs'] },
   plugins: [
     vue(),
     {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { localizeGameLanguage } from '../src/i18n/game.mjs'
 import vm from 'node:vm'
 import { createRequire } from 'node:module'
 import { reactive, computed, markRaw } from 'vue'
@@ -27,6 +28,7 @@ test('town candidates ignore prices and invalidate when routing inputs change', 
   const source = readFileSync(new URL('../src/stores/game.js', import.meta.url), 'utf8')
     .replace(/^import .*\r?\n/gm, '').replace('export const useGameStore =', 'const useGameStore =')
   const options = vm.runInNewContext(`${source}\nuseGameStore`, {
+    localizeGameLanguage,
     defineStore: options => options,
     useUserStore: () => user,
     Heap: createRequire(import.meta.url)('heap'),

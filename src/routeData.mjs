@@ -1,5 +1,5 @@
-const plannerPages = new Set(['/', '/settings', '/workshops', '/housecraft', '/lodging', '/routertests'])
-const marketPages = new Set(['/', '/settings', '/plantzones', '/othertowns'])
+const plannerPages = new Set(['/', '/settings', '/workshops', '/housecraft', '/lodging', '/routertests', '/optimizer'])
+const marketPages = new Set(['/', '/settings', '/plantzones', '/othertowns', '/optimizer'])
 
 export function routeDataRequirements(path, user) {
   if (path === '/fishsize') return {}
@@ -8,7 +8,7 @@ export function routeDataRequirements(path, user) {
   const planner = plannerPages.has(path) || (path === '/plantzones' && user.userWorkers.length > 0)
   return {
     core: true, planner, market: marketPages.has(path),
-    wasm: path === '/routertests' || (planner && user.wasmRouting),
+    wasm: path === '/routertests' || (planner && path !== '/optimizer' && user.wasmRouting),
   }
 }
 

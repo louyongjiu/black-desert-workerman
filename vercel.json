@@ -24,6 +24,7 @@
   "rewrites": [
     { "source": "/workerman/assets/:path*", "destination": "/assets/:path*" },
     { "source": "/workerman/data/:path*", "destination": "/data/:path*" },
+    { "source": "/workerman/licenses/:path*", "destination": "/licenses/:path*" },
     { "source": "/workerman/favicon.ico", "destination": "/favicon.ico" },
     { "source": "/workerman", "destination": "/index.html" },
     { "source": "/workerman/:path((?!assets/|data/).*)", "destination": "/index.html" },

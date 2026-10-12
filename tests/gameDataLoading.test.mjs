@@ -3,12 +3,13 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import vm from 'node:vm'
 import { DATASET_GROUPS } from '../src/dataLoading.mjs'
+import { localizeGameLanguage } from '../src/i18n/game.mjs'
 
 function gameHarness(loadGroup, proxyActions = false) {
   const source = readFileSync(new URL('../src/stores/game.js', import.meta.url), 'utf8')
     .replace(/^import .*\r?\n/gm, '').replace('export const useGameStore =', 'const useGameStore =')
   const options = vm.runInNewContext(source + '\nuseGameStore', {
-    defineStore: options => options, markRaw: value => value,
+    defineStore: options => options, markRaw: value => value, localizeGameLanguage,
     useUserStore: () => ({ selectedLang: 'en' }),
     console: { log() {} }, loadGameDatasets: loadGroup,
     fetchJson: async file => JSON.parse(readFileSync(new URL('../' + file, import.meta.url))),

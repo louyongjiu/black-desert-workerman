@@ -135,24 +135,21 @@ export default {
 
 <template>
   <div v-if="visible" class="search-bar">
-    <input 
-      type="text" 
-      v-model="searchQuery" 
+    <input
+      type="text"
+      v-model="searchQuery"
       @input="onInput"
       ref="searchInput"
-      placeholder="Search..."
+      :placeholder="$t('Search...')"
     />
-    <button @click="selectItem(emptySet)">reset</button>
+    <button @click="selectItem(emptySet)">{{ $t('reset') }}</button>
     <ul v-if="searchResults">
-      <li v-for="(data, str) in searchResults" 
-          @click="selectItem(data.hlSet)">
-
+      <li v-for="(data, str) in searchResults" @click="selectItem(data.hlSet)">
         <template v-if="data.type == 'dropsItem'">
-          <ItemIcon :ik="data.itemKey"/> {{ str }} ({{ data.hlSet.size }} nodes)
+          <ItemIcon :ik="data.itemKey" /> {{ str }} ({{ data.hlSet.size }}
+          {{ $t('nodes)') }}
         </template>
-        <template v-else-if="data.type == 'name'">
-          🗺️ {{ str }}
-        </template>
+        <template v-else-if="data.type == 'name'"> 🗺️ {{ str }} </template>
         <template v-else-if="data.type == 'key'">
           🗺️ {{ str }} - {{ gameStore.uloc.node[str] }}
         </template>
