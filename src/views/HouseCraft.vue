@@ -1,433 +1,370 @@
-<script>
-import {useUserStore} from '../stores/user'
-import {useGameStore} from '../stores/game'
-import {formatFixed} from '../util.js'
-
+<script setup>
+import { computed, ref } from "vue";
+import { useRoute } from "vue-router";
+import { useGameStore } from "../stores/game";
+import { useUserStore } from "../stores/user";
+import { useHousingStore } from "../stores/housing";
+import { useUiI18n } from "../i18n/vue";
+import HouseReservations from "../components/HouseReservations.vue";
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { TreeChart } from "echarts/charts";
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-} from "echarts/components";
-import VChart, { THEME_KEY } from "vue-echarts";
-import { ref, defineComponent } from "vue";
-
-use([
-  CanvasRenderer,
-  TreeChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-]);
-
-export default {
-  setup() {
-    const userStore = useUserStore()
-    const gameStore = useGameStore()
-
-    /*userStore.$subscribe((mutation, state) => {
-      const start = Date.now()
-      localStorage.setItem('user', JSON.stringify(state))
-      console.log('userStore subscription took', Date.now()-start, 'ms')
-    })*/
-
-    return { gameStore, userStore }
-  },
-
-  components: {
-    VChart,
-  },
-
-  props: {
-    show: {
-      type: Boolean,
-      default: false
-    }
-  },
-
-  data: () => ({
-    tk: 5,
-    wantLodging: 0,
-    wantStorage: 0,
-  }),
-
-  computed: {
-    townsWithHouses() {
-      const ret = []
-      if (!this.gameStore.ready) return ret
-      // first of all, only consider manually assigned as "towns" in game.js
-      // since housecraft data files don't cover Kusha, Abun, etc
-      for (const tnk of this.gameStore.townsWithLodging) {
-        const tk = this.gameStore.tnk2tk(tnk)
-        // towns with no houses are not localized -> don't show in dropbox
-        if (tk in this.gameStore.uloc.town) {
-          ret.push(tk)
-        }
-      }
-      //console.log('townsWithHouses', ret)
-      return ret
+import { TooltipComponent } from "echarts/components";
+import VChart from "vue-echarts";
+use([CanvasRenderer, TreeChart, TooltipComponent]);
+const game = useGameStore(),
+  user = useUserStore(),
+  housing = useHousingStore();
+const { t, locale } = useUiI18n(),
+  route = useRoute();
+const towns = computed(() =>
+  [
+    ...new Set(Object.values(game.houseInfo).map((h) => Number(h.affTown))),
+  ].sort((a, b) =>
+    (game.uloc.town[a] || String(a)).localeCompare(
+      game.uloc.town[b] || String(b)
+    )
+  )
+);
+const initial = Number(route.query.town);
+const tk = ref(towns.value.includes(initial) ? initial : 5),
+  wantLodging = ref(0),
+  wantStorage = ref(0),
+  actionError = ref("");
+const bestLookup = computed(() =>
+  housing.lookup(tk.value, wantLodging.value, wantStorage.value, 2)
+);
+const running = computed(() => housing.busyKey === bestLookup.value.sourceKey);
+const saved = computed(() => user.housingPlans[tk.value]);
+const rows = computed(() => {
+  const plan = bestLookup.value;
+  return (plan.indices || [])
+    .map((hk, i) => ({
+      hk,
+      state: plan.states[i],
+      usage:
+        plan.usages?.[i] ??
+        (plan.states[i] === 1 ? 2 : plan.states[i] === 2 ? 1 : 0),
+      house: game.houseInfo[hk],
+      automatic: Boolean(plan.reservations?.[hk]?.automatic),
+    }))
+    .filter((row) => row.house)
+    .sort((a, b) =>
+      (game.uloc.char[a.hk] || String(a.hk)).localeCompare(
+        game.uloc.char[b.hk] || String(b.hk)
+      )
+    );
+});
+const changes = computed(() => {
+  if (!saved.value || !bestLookup.value.success) return null;
+  const before = new Set(
+      saved.value.indices.filter((hk) => game.houseInfo[hk])
+    ),
+    after = new Set(rows.value.map((r) => r.hk));
+  return {
+    added: [...after].filter((k) => !before.has(k)),
+    removed: [...before].filter((k) => !after.has(k)),
+    changed: rows.value
+      .filter((r) => {
+        const i = saved.value.indices.indexOf(r.hk);
+        return (
+          i >= 0 &&
+          (saved.value.usages?.[i] ??
+            (saved.value.states[i] === 1
+              ? 2
+              : saved.value.states[i] === 2
+              ? 1
+              : 0)) !== r.usage
+        );
+      })
+      .map((r) => r.hk),
+  };
+});
+const display = (value) =>
+  Number.isFinite(value) ? value.toLocaleString(locale.value) : "—";
+const name = (key) => game.uloc.char[key] || key;
+const useName = (usage) => game.uloc.housetype[usage] || usage;
+const tree = computed(() => {
+  const root = {
+      name: "",
+      value: { label: game.uloc.town[tk.value] },
+      children: [],
     },
-    bestLookup() {
-      return this.gameStore.lsLookup(this.tk, this.wantLodging, this.wantStorage)
-    },
-    sortedResult() {
-      const ret = []
-      const lookup = this.bestLookup
-      //console.log(lookup)
-      if (lookup && lookup.success) {
-        for (let idx = 0; idx < lookup.indices.length; idx++) {
-          const hk = lookup.indices[idx]
-          const name = this.gameStore.uloc.char[hk]
-          const state = lookup.states[idx]
-          ret.push({hk, name, state})
-        }
-        ret.sort((a,b)=>('' + a.name).localeCompare(b.name))
-      }
-      return ret
-    },
-    storageCost() {
-      let ret = 0
-      for (const e of this.sortedResult) {
-        if (e.state == 1) {
-          ret += this.gameStore.houseCost(e.hk)
-        }
-      }
-      return ret
-    },
-    lodgingCost() {
-      let ret = 0
-      for (const e of this.sortedResult) {
-        if (e.state == 2) {
-          ret += this.gameStore.houseCost(e.hk)
-        }
-      }
-      return ret
-    },
-    townChains() {
-      const ret = {}
-      for (const hk of this.gameStore.housesPerTown[this.tk]) {
-        ret[hk] = []
-        let hkIter = Number(hk)
-        while (hkIter != 0) {
-          ret[hk].unshift(hkIter)
-          hkIter = this.gameStore.houseInfo[hkIter].needHouseKey
-        }
-      }
-      //console.log('townChains', ret)
-      return ret
-    },
-    townTree() {
-      const ret = {
-        name: '', 
-        value: this.gameStore.uloc.town[this.tk], 
-        children: []
-      }
-      if (!this.gameStore.ready)
-        return ret
-      if (!this.bestLookup.success) {
-        console.log('bestlookup failed for tk', this.tk)
-        return ret
-      }
-      for (const hk of this.gameStore.housesPerTown[this.tk]) {
-        let treeIter = ret
-        for (const chainIter of this.townChains[hk]) {
-          const found = treeIter.children.findIndex(obj => obj.name == chainIter)
-          //console.log('treeIter', treeIter, found)
-          if (found >= 0) {
-            treeIter = treeIter.children[found]
+    nodes = new Map();
+  for (const h of Object.values(game.houseInfo).filter(
+    (h) => Number(h.affTown) === tk.value
+  )) {
+    const row = rows.value.find((r) => r.hk === h.key);
+    nodes.set(h.key, {
+      name: String(h.key),
+      value: {
+        label: name(h.key),
+        cp: h.CP,
+        use: row
+          ? row.automatic
+            ? t("Working workshop")
+            : useName(row.usage)
+          : t("Available for planning"),
+      },
+      itemStyle: row
+        ? {
+            color: row.state === 1 ? "#a5f" : row.state === 2 ? "#fe6" : "#6bd",
           }
-          else {
-            let state = 0
-            if (this.bestLookup) {
-              const idx = this.bestLookup.indices.indexOf(chainIter)
-              if (idx !== -1) {
-                state = this.bestLookup.states[idx]
-              }
-            }
-            
-            const newChild = {
-              name: chainIter,
-              value: {
-                label: this.gameStore.uloc.char[chainIter],
-                lodging: this.gameStore.houseLodging(chainIter),
-                storage: this.gameStore.houseStorage(chainIter),
-                cp: this.gameStore.houseCost(chainIter)
-              },
-              lineStyle: treeIter.name == 0 ? { color: 'transparent' } : state > 0 ? (state == 2 ? { color: '#fe6' } : { color: '#a5f' }) : {},
-              itemStyle: state > 0 ? (state == 2 ? { color: '#fe6' } : { color: '#a5f' }) : {},
-              children: []
-            }
-            treeIter.children.push(newChild)
-            treeIter = newChild
-          }
-        }
-      }
-      if (this.tk == 1553) console.log('townTree', ret)
-      return ret
-    },
-    chartOption() {
-      return {
-        tooltip: {
-          trigger: 'item',
-          triggerOn: 'mousemove',
-          formatter: function(p) {
-            const v = p.value
-            if (p.name == 0)
-              return v
-            return `${p.name} ${v.label}<br/>${v.lodging}🛏️ ${v.storage}📦 ${v.cp}CP`
-          }
-        },
-        series: [
-          {
-            type: 'tree',
-            //orient: 'TB',
-            layout: 'radial',
-            roam: true,
-            data: [this.townTree],
-            top: '1%',
-            left: '1%',
-            bottom: '1%',
-            right: '1%',
-            symbolSize: 6,
-            initialTreeDepth: 9,
-            label: {
-              fontSize: 9,
-              color: 'gray',
-              position: 'top',
-              //verticalAlign: 'middle',
-              //align: 'right',
-              formatter: function(p) {
-                const v = p.value
-                if (p.name == 0)
-                  return ''
-                return `{r|${v.lodging}} {o|${v.storage}} ${v.cp}`
-              },
-              rich: {
-                r: {
-                  fontSize: 9,
-                  //color: 'red',
-                },
-                o: { 
-                  fontSize: 9, 
-                  //color: 'orange',
-                },
-              },
-            },
-            leaves: {
-              label: {
-              }
-            },
-            emphasis: {
-              focus: 'descendant'
-            },
-            //expandAndCollapse: true,
-          }
-        ]
-      }
-    },
+        : {},
+      children: [],
+    });
+  }
+  for (const [hk, node] of nodes) {
+    const parent = game.houseInfo[hk].needHouseKey;
+    (nodes.get(parent) || root).children.push(node);
+  }
+  return root;
+});
+const chartOption = computed(() => ({
+  tooltip: {
+    trigger: "item",
+    formatter: (p) =>
+      p.value.label +
+      " · " +
+      (p.value.cp ?? "") +
+      " " +
+      t("CP") +
+      " · " +
+      (p.value.use || ""),
   },
-
-  methods: {
-    formatFixed,
-  },
-  
+  series: [
+    {
+      type: "tree",
+      layout: "radial",
+      roam: true,
+      data: [tree.value],
+      symbolSize: 6,
+      initialTreeDepth: 10,
+      label: { show: false },
+      emphasis: { focus: "ancestor" },
+    },
+  ],
+}));
+function empireNeeds() {
+  const infra = user.townsInfra[tk.value];
+  if (infra) {
+    wantLodging.value = Math.max(0, infra.wantLodging);
+    wantStorage.value = Math.max(0, infra.wantStorage);
+  }
+}
+function save() {
+  try {
+    housing.save(bestLookup.value);
+    actionError.value = "";
+  } catch (e) {
+    actionError.value = e.message;
+  }
 }
 </script>
-
 <template>
-  <main>
-    <div class="limit">
-      <div id="controls">
-        <p>
-          {{ $t('data from') }}
-          <a href="https://github.com/Thell/bdo-housecraft"
-            >Thell/bdo-housecraft</a
-          >
-        </p>
-
-        <div id="fluid">
-          <div id="sliders">
-            <table v-if="this.gameStore.ready">
-              <tr>
-                <th></th>
-                <th>{{ $t('wanted') }}</th>
-                <th>{{ $t('found') }}</th>
-                <th>{{ $t('cost') }}</th>
-                <th>{{ $t('per CP') }}</th>
-              </tr>
-              <tr>
-                <th class="lodging">{{ $t('lodging') }}</th>
-                <th>
-                  <input
-                    type="range"
-                    class="wlong"
-                    v-model.number="wantLodging"
-                    min="0"
-                    :max="
-                      Math.min(
-                        gameStore.ready
-                          ? gameStore.townUpperLimits[tk].lodging
-                          : 999,
-                        100
-                      )
-                    "
-                  />{{ wantLodging }}
-                </th>
-                <th>{{ bestLookup ? bestLookup.lodging : '?' }}</th>
-                <th>{{ lodgingCost }} {{ $t('CP') }}</th>
-                <th>
-                  {{
-                    bestLookup
-                      ? formatFixed(bestLookup.lodging / lodgingCost, 3)
-                      : '?'
-                  }}
-                </th>
-              </tr>
-              <tr>
-                <th class="storage">{{ $t('storage') }}</th>
-                <th>
-                  <input
-                    type="range"
-                    class="wlong"
-                    v-model.number="wantStorage"
-                    min="0"
-                    :max="
-                      Math.min(
-                        gameStore.ready
-                          ? gameStore.townUpperLimits[tk].storage
-                          : 999,
-                        192 - 8
-                      )
-                    "
-                  />{{ wantStorage }}
-                </th>
-                <th>{{ bestLookup ? bestLookup.storage : '?' }}</th>
-                <th>{{ storageCost }} {{ $t('CP') }}</th>
-                <th>
-                  {{
-                    bestLookup
-                      ? formatFixed(bestLookup.storage / storageCost, 3)
-                      : '?'
-                  }}
-                </th>
-              </tr>
-              <tr>
-                <th colspan="3">
-                  {{ $t('town') }}
-                  <select v-model="tk">
-                    <option v-for="tk in this.townsWithHouses" :value="tk">
-                      {{ gameStore.uloc.town[tk] }}
-                    </option>
-                  </select>
-                </th>
-                <th colspan="2">
-                  {{ bestLookup ? bestLookup.cost : '?' }} {{ $t('CP total') }}
-                </th>
-              </tr>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div style="clear: both"></div>
-      <div id="houselist" v-if="bestLookup">
-        <template v-for="e in sortedResult">
-          <p
-            v-if="e.state > 0"
-            :class="{ storage: e.state == 1, lodging: e.state == 2 }"
-          >
-            {{ e.name }}
-          </p>
-        </template>
-      </div>
-
-      <v-chart class="chart" :option="chartOption" />
+  <main class="housecraft">
+    <h1>{{ $t("Housing planner") }}</h1>
+    <p>
+      {{
+        $t(
+          "Plan lodging and storage while keeping reserved house uses. Each rented house is counted once."
+        )
+      }}
+    </p>
+    <p>
+      {{ $t("data from") }}
+      <a href="https://github.com/Thell/bdo-housecraft">Thell/bdo-housecraft</a>
+    </p>
+    <div class="controls">
+      <label
+        >{{ $t("town")
+        }}<select v-model.number="tk">
+          <option v-for="town in towns" :key="town" :value="town">
+            {{ game.uloc.town[town] || town }}
+          </option>
+        </select></label
+      >
+      <label
+        >{{ $t("Required beds from houses")
+        }}<input v-model.number="wantLodging" type="number" min="0" max="1000"
+      /></label>
+      <label
+        >{{ $t("Required storage from houses")
+        }}<input v-model.number="wantStorage" type="number" min="0" max="2000"
+      /></label>
+      <button @click="empireNeeds">{{ $t("Use current empire needs") }}</button>
     </div>
+    <p>
+      {{
+        $t(
+          "These requirements are supplied by rented houses. Current empire needs already deduct free and paid capacity."
+        )
+      }}
+    </p>
+    <HouseReservations :town-key="tk" />
+    <p v-if="bestLookup.pending || running" role="status">
+      {{ $t("Calculating housing") }}
+      <button @click="housing.stop(bestLookup.sourceKey)">
+        {{ $t("Stop housing calculation") }}
+      </button>
+    </p>
+    <p v-if="bestLookup.error" role="alert">
+      {{ $t(bestLookup.error) }}
+      <button @click="housing.retry(bestLookup.sourceKey)">
+        {{ $t("Retry housing calculation") }}
+      </button>
+    </p>
+    <p v-if="actionError" role="alert">{{ $t(actionError) }}</p>
+    <section v-if="bestLookup.success" class="result">
+      <p>
+        <strong>{{ display(bestLookup.cost) }} {{ $t("CP total") }}</strong> ·
+        {{ display(bestLookup.lodging) }} {{ $t("lodging") }} ·
+        {{ display(bestLookup.storage) }} {{ $t("storage") }}
+      </p>
+      <p
+        v-if="
+          bestLookup.status === 'time_limit' || bestLookup.status === 'stopped'
+        "
+      >
+        {{ $t("Feasible housing plan; minimum cost has not been proved.") }}
+      </p>
+      <p v-else-if="!running">
+        {{
+          $t("Minimum housing cost for these requirements and reservations.")
+        }}
+      </p>
+      <button :disabled="running" @click="save">
+        {{ $t("Save housing plan") }}
+      </button>
+      <button v-if="user.housingUndo" @click="housing.undo()">
+        {{ $t("Undo housing change") }}
+      </button>
+      <p>
+        {{
+          $t(
+            "Saving records this plan in Workerman. It does not rent houses in the game."
+          )
+        }}
+      </p>
+      <p v-if="saved && saved.sourceKey === bestLookup.sourceKey">
+        {{ $t("Housing plan saved") }}
+      </p>
+      <div v-if="changes">
+        <p>
+          {{ $t("Compared with saved housing plan") }}:
+          {{ display(bestLookup.cost - saved.cost) }} {{ $t("CP") }}
+        </p>
+        <p>
+          {{ $t("Rent these houses") }}:
+          {{ changes.added.map(name).join(", ") || "—" }}
+        </p>
+        <p>
+          {{ $t("Release these houses") }}:
+          {{ changes.removed.map(name).join(", ") || "—" }}
+        </p>
+        <p>
+          {{ $t("Change these house uses") }}:
+          {{ changes.changed.map(name).join(", ") || "—" }}
+        </p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{{ $t("House") }}</th>
+              <th>{{ $t("usage") }}</th>
+              <th>{{ $t("CP") }}</th>
+              <th>{{ $t("Prerequisite house") }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row.hk">
+              <td>{{ name(row.hk) }}</td>
+              <td>
+                {{
+                  row.automatic ? $t("Working workshop") : useName(row.usage)
+                }}
+              </td>
+              <td>{{ row.house.CP }}</td>
+              <td>
+                {{
+                  row.house.needHouseKey ? name(row.house.needHouseKey) : "—"
+                }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <p v-else-if="!bestLookup.pending && !bestLookup.error" role="alert">
+      {{ $t("No housing plan satisfies these reservations") }}
+    </p>
+    <v-chart
+      v-if="towns.includes(tk)"
+      class="chart"
+      :option="chartOption"
+      autoresize
+    />
   </main>
 </template>
-
 <style scoped>
-main {
+.housecraft {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+}
+label {
   display: flex;
   flex-direction: column;
-  height: 96%;
-  overflow: hidden;
+  gap: 0.3rem;
 }
-
-.limit {
+input {
+  width: 7rem;
+}
+select {
+  max-width: 100%;
+}
+.result {
+  border: 1px solid #666;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+.table-wrap {
+  overflow: auto;
+}
+table {
   width: 100%;
-  height: 100%;
 }
-
-#controls, #houselist {
-  float: left;
-  z-index: 1;
+td,
+th {
+  text-align: left;
+  padding: 0.4rem;
 }
-
-.wlong {
-  width: 15em;
+p {
+  margin: 0.7rem 0;
 }
-
-/* Tooltip container */
-.tooltip {
-  position: relative;
-  display: inline-block;
-  border-bottom: 1px dotted gray; /* If you want dots under the hoverable text */
+p[role="alert"] {
+  color: #f99;
 }
-
-.sTaken {
-  background-color: rgb(75, 58, 22);
+.chart {
+  height: 480px;
+  width: 100%;
 }
-.lTaken {
-  color: rgb(214, 48, 42);
-}
-
-/* Tooltip text */
-.tooltip .tooltiptext {
-  visibility: hidden;
-  width: 120px;
-  background-color: black;
-  color: #fff;
-  text-align: center;
-  padding: 5px 0;
- 
-  /* Position the tooltip text */
-  position: absolute;
-  z-index: 1;
-  bottom: 100%;
-  left: 50%;
-  margin-left: -60px;
-}
-
-/* Show the tooltip text when you mouse over the tooltip container */
-.tooltip:hover .tooltiptext {
-  visibility: visible;
-}
-
-#houselist {
-  margin-top: 0.2em;
-  list-style: none;
-  padding: 0;
-  font-size: small;
-}
-
-.lodging {
-  color: #fe6;
-}
-.storage {
-  color: #a5f;
-}
-
-#fluid {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-}
-
-#cost {
-  display: flex;
-  align-items: center;
+@media (max-width: 600px) {
+  .housecraft {
+    padding: 0.5rem;
+  }
+  .controls > label {
+    max-width: 100%;
+  }
+  .chart {
+    height: 340px;
+  }
 }
 </style>

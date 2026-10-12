@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { localizeGameLanguage } from "../src/i18n/game.mjs";
+import {
+  normalizeReservations,
+  housingDataSignature,
+} from "../src/housing/core.mjs";
+import { solveHousing } from "../src/housing/solve.mjs";
 import vm from "node:vm";
 import loadHighs from "highs";
 import { buildModel } from "../src/optimizer/model.mjs";
@@ -25,6 +30,43 @@ import { buildDistanceIndex, medianWorkerStats } from "../src/gameLookups.mjs";
 import { binarySearch } from "../src/util.js";
 
 const highs = await loadHighs();
+test("empty reservations preserve the legacy configuration signature; reserving a house invalidates it", () => {
+  const user = {
+    userWorkers: [],
+    grindTakenList: [],
+    lodgingP2W: { 5: 0 },
+    storageP2W: {},
+    storagePersonal: {},
+    storageVP: false,
+    selectedRegion: "RU",
+    activateAncado: false,
+    farmingEnable: false,
+    tradeDestinations: {},
+    tradeRouteAlwaysOn: {},
+    tradeInfraCp: {},
+    tradeRouteCp: {},
+  };
+  const legacy = JSON.stringify([
+    [],
+    [],
+    [],
+    [],
+    [],
+    false,
+    "RU",
+    false,
+    false,
+    {},
+    {},
+    {},
+    {},
+  ]);
+  assert.equal(configurationSignature(user), legacy);
+  user.houseReservations = {};
+  assert.equal(configurationSignature(user), legacy);
+  user.houseReservations = { 2112: { usage: 0 } };
+  assert.notEqual(configurationSignature(user), legacy);
+});
 
 function fixture(budget, lockedNodeIds = []) {
   const nodes = Object.fromEntries(
@@ -318,6 +360,29 @@ function realGame() {
     useGameStore: () => game,
     useRoutingStore: () => ({ routing: appliedRouting(user, game) }),
     calculateCyclesDaily: cyclesDaily,
+    configurationSignature,
+    normalizeReservations,
+    housingDataSignature,
+    useHousingStore: () => ({
+      lookup(tk, l, s) {
+        const reservations = normalizeReservations(game.houseInfo, user);
+        if (
+          !Object.keys(reservations).some(
+            (hk) => game.houseInfo[hk].affTown == tk
+          )
+        )
+          return game.lsLookup(tk, l, s);
+        return solveHousing(highs, {
+          houses: game.houseInfo,
+          townKey: tk,
+          reservations,
+          wantLodging: l,
+          wantStorage: s,
+          key: "harness",
+          timeLimit: 3,
+        });
+      },
+    }),
     console: { log() {} },
   });
   user = { ...userOptions.state(), selectedLang: "en" };
@@ -437,6 +502,94 @@ test("real game candidates and applied paths reproduce the current UI profit and
   );
   user.userWorkers[0].tnk = 301;
   assert.equal(appliedRouting(user, game), null);
+});
+
+test("reserved houses join the empire model, seed remains valid, application reproduces CP and reservation changes invalidate paths", async () => {
+  const { game, user, market } = realGame();
+  await game.fetchPlannerData();
+  const locked = Object.values(game.houseInfo).find(
+    (h) => h.affTown === 5 && h.CraftList[1] >= 2
+  );
+  const outside = Object.values(game.houseInfo).find(
+    (h) => h.affTown === 88 && h.CraftList[0]
+  );
+  user.houseReservations = {
+    [locked.key]: { usage: 0 },
+    [outside.key]: { usage: 0 },
+  };
+  const snapshot = createSnapshot(game, user, market, {
+    townIds: [1],
+    budget: 80,
+    timeLimit: 8,
+    maxPlantzones: 20,
+    storageTown: 601,
+    includeGrind: true,
+  });
+  const prepared = prepareValues(snapshot),
+    problem = buildModel(snapshot, prepared);
+  assert.equal(problem.housingModels.length, 2);
+  const seed = greedySeed(problem);
+  assert.ok(seed);
+  decodeResult(problem, seed);
+  const result = solveSnapshot(highs, snapshot);
+  assert.ok(result.workers.length);
+  const room = result.housing.find((h) => h.townKey === 5),
+    index = room.indices.indexOf(locked.key);
+  assert.equal(room.states[index], 3);
+  assert.equal(room.usages[index], 0);
+  assert.ok(
+    result.housing.some((h) => h.townKey === 88 && h.cost >= outside.CP)
+  );
+  user.userWorkers = result.workers;
+  user.optimizerPlan = {
+    ...result,
+    appliedSignature: configurationSignature(user),
+  };
+  assert.equal(user.totalCP, result.totalCP);
+  assert.equal(user.townsInfra[5].lodging, room.houseLodging);
+  assert.ok(appliedRouting(user, game));
+  user.houseReservations[locked.key] = { usage: 1 };
+  assert.equal(appliedRouting(user, game), null);
+});
+
+test("home housing and workshop contributions count their shared prerequisite union once", async () => {
+  const { game, user } = realGame();
+  await game.fetchPlannerData();
+  const available = Object.values(game.houseInfo).filter(
+    (h) =>
+      h.affTown === 88 &&
+      h.needHouseKey &&
+      Object.keys(h.CraftList).some((u) => Number(u) > 10)
+  );
+  const first = available.find((h) =>
+    available.some(
+      (other) => other.key !== h.key && other.needHouseKey === h.needHouseKey
+    )
+  );
+  const second = available.find(
+    (h) => h.key !== first.key && h.needHouseKey === first.needHouseKey
+  );
+  user.userWorkers = [first, second].map((h) => ({
+    tnk: game.tk2tnk(88),
+    charkey: 7572,
+    level: 40,
+    job: { kind: "workshop", hk: h.key },
+  }));
+  user.userWorkshops = {
+    [first.key]: { manualCp: 999 },
+    [second.key]: { manualCp: 999 },
+  };
+  const r = solveHousing(highs, {
+    houses: game.houseInfo,
+    townKey: 88,
+    reservations: normalizeReservations(game.houseInfo, user),
+    wantLodging: 1,
+    wantStorage: 0,
+    key: "union",
+  });
+  assert.equal(user.workshopTotalCP, first.CP + second.CP);
+  assert.equal(user.townInfra(88, 2, 0).cost + user.workshopTotalCP, r.cost);
+  assert.equal(r.indices.filter((k) => k === first.needHouseKey).length, 1);
 });
 
 test("serialized missing prices remain missing instead of becoming zero-valued prices", async () => {

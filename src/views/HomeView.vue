@@ -313,6 +313,9 @@ export default {
 
       // "this.userStore = json" but better
       this.userStore.$patch(json)
+      for (const key of ['houseReservations', 'housingPlans']) {
+        if (Object.prototype.hasOwnProperty.call(json, key)) this.userStore[key] = json[key]
+      }
 
       // handle file entries that are empty 
       if (json.lodgingTaken && Object.keys(json.lodgingTaken).length > 0) {
@@ -341,6 +344,12 @@ export default {
         lodgingTaken: this.userStore.lodgingTaken,
         userWorkers: this.userStore.userWorkers,
         optimizerPlan: this.userStore.optimizerPlan,
+        houseReservations: this.userStore.houseReservations,
+        housingPlans: this.userStore.housingPlans,
+        storagePersonal: this.userStore.storagePersonal,
+        storageP2W: this.userStore.storageP2W,
+        storageVP: this.userStore.storageVP,
+        userWorkshops: this.userStore.userWorkshops,
         farmingEnable: this.userStore.farmingEnable,
         farmingProfit: this.userStore.farmingProfit,
         farmingBareProfit: this.userStore.farmingBareProfit,
@@ -619,7 +628,7 @@ export default {
                   </div>
                 </template>
               </draggable>
-              {{ $t('lodging/storage:') }} {{ userStore.lodgage }} <br />
+              {{ $t('Housing and reserved houses:') }} {{ Number.isFinite(userStore.lodgage) ? userStore.lodgage : $t('Calculating housing') }} <br />
 
               <template v-if="userStore.farmingEnable">
                 {{ $t('farming:') }} {{ userStore.farmingCP }} <br />

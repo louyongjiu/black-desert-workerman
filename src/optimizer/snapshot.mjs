@@ -1,3 +1,7 @@
+import {
+  normalizeReservations,
+  housingDataSignature,
+} from "../housing/core.mjs";
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
 export function configurationSignature(user) {
@@ -6,7 +10,7 @@ export function configurationSignature(user) {
       .filter(([, v]) => Number(v) !== 0)
       .map(([key, v]) => [Number(key), Number(v)])
       .sort((a, b) => a[0] - b[0]);
-  return JSON.stringify([
+  const fields = [
     user.userWorkers,
     user.grindTakenList,
     numericMap(user.lodgingP2W),
@@ -20,7 +24,13 @@ export function configurationSignature(user) {
     user.tradeRouteAlwaysOn,
     user.tradeInfraCp,
     user.tradeRouteCp,
-  ]);
+  ];
+  const reservations = Object.entries(user.houseReservations || {}).sort(
+    (a, b) => Number(a[0]) - Number(b[0])
+  );
+  // Empty new settings preserve signatures of previously applied gathering plans.
+  if (reservations.length) fields.push(reservations);
+  return JSON.stringify(fields);
 }
 
 export function valuationSignature(user, market) {
@@ -84,6 +94,9 @@ export function createSnapshot(game, user, market, options) {
     distances: game.tk2pzk,
     regionInfo: game.regionInfo,
     housing: game.ls_lookup,
+    houses: game.houseInfo,
+    housingDataSignature: housingDataSignature(game.houseInfo),
+    houseReservations: normalizeReservations(game.houseInfo, user),
     workerStatic: game.workerStatic,
     skillData: game.skillData,
     townTemplates,

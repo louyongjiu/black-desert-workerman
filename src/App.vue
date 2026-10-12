@@ -47,6 +47,7 @@ export default {
         <RouterLink to="/">{{ $t('Home') }}</RouterLink>
         <RouterLink to="/plantzones">{{ $t('Plantzones') }}</RouterLink>
         <RouterLink to="/optimizer">{{ $t('帝国优化') }}</RouterLink>
+        <RouterLink to="/housecraft">{{ $t('Housing planner') }}</RouterLink>
         <RouterLink to="/resources">{{ $t('Resources') }}</RouterLink>
         <RouterLink to="/settings">{{ $t('Settings') }}</RouterLink>
         <RouterLink to="/about">{{ $t('About') }}</RouterLink>

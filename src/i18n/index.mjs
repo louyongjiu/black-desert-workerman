@@ -2,6 +2,7 @@ import core from './core.mjs';
 import research from './research.mjs';
 import optimizer from './optimizer.mjs';
 import about from './about.mjs';
+import housing from './housing.mjs';
 import { common as extra, optimizer as optimizerExtra } from './extra.mjs';
 
 export const languages = Object.freeze({
@@ -34,6 +35,7 @@ function addTable(table, sourceIsEnglish = true) {
   }
 }
 addTable(core);
+addTable(housing);
 addTable(research);
 addTable(optimizer, false);
 addTable(extra);

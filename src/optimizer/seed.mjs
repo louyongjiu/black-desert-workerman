@@ -30,12 +30,20 @@ export function greedySeed(problem) {
       const storage = town.warehouse
         ? items.size + (assignments.length ? 1 : 0)
         : 0;
-      const choice = problem.housingVars.find(
+      const choice = (
+        town.dynamicHousing ? town.choices : problem.housingVars
+      ).find(
         (c) =>
-          c.town === town.town && c.lodging >= count && c.storage >= storage
+          (town.dynamicHousing || c.town === town.town) &&
+          c.lodging >= count &&
+          c.storage >= storage
       );
       if (!choice) return null;
-      picked.push(choice);
+      picked.push({
+        ...choice,
+        town: town.town,
+        dynamicHousing: town.dynamicHousing,
+      });
     }
     return picked;
   };
@@ -73,7 +81,21 @@ export function greedySeed(problem) {
   if (!rooms || totalCP(selected, rooms) > snapshot.budget) return null;
   const columns = new Float64Array(problem.data.numCols);
   for (const id of selected) columns[problem.nodeVars.get(id)] = 1;
-  for (const room of rooms) columns[room.index] = 1;
+  for (const room of rooms) {
+    if (!room.dynamicHousing) {
+      columns[room.index] = 1;
+      continue;
+    }
+    const model = problem.housingModels.find((h) => h.town.town === room.town);
+    for (let i = 0; i < room.indices.length; i++) {
+      const v = model.vars.get(Number(room.indices[i]));
+      if (!v) continue;
+      columns[v.rent] = 1;
+      columns[
+        room.states[i] === 1 ? v.s : room.states[i] === 2 ? v.l : v.other
+      ] = 1;
+    }
+  }
   for (const item of new Set(chosen.flatMap((a) => a.itemKeys)))
     columns[problem.itemVars.get(item)] = 1;
   columns[problem.productionVar] = chosen.length ? 1 : 0;

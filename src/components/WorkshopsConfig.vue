@@ -168,7 +168,7 @@ export default {
         <abbr
           :title="
             $t(
-              'Full cost of operating the workshop, including:\n1) the workshop itself;\n2) house chain to connect the workshop (*after* autoassigned houses shown in Home > town config > Found cost spoiler);\n3) storage for input/output mats, if not provided by (2).\nThe only thing to not include here is lodging for the worker who is going to occupy the workshop.\nHowever, if your workshop house chain does provide lodging, reduce (2) accordingly. \nThe house chain can potentially provide storage and lodging not only for this workshop, but for other workshops of this town. \nIn this case, use average CP value (sum up all workshop-related CP costs and divide by active workshop count).'
+              'Shared prerequisite houses are counted once in housing costs.'
             )
           "
           class="tooltip"
@@ -214,7 +214,7 @@ export default {
           v-model.number="v.manualCycleIncome"
         />
       </td>
-      <td><input type="number" class="w5em" v-model.number="v.manualCp" /></td>
+      <td :title="$t('Shared prerequisite houses are counted once in housing costs.')">{{ houses[hk]?.CP }}</td>
       <td>
         <button @click="deleteWorkshop(hk)">{{ $t('delete') }}</button>
       </td>
@@ -287,7 +287,7 @@ export default {
     class="tooltip"
     :title="
       $t(
-        'Note that assigning house as workshop does not prevent it from being used for autolodging/autostorage on Home page.\nYou need to manually work around this.'
+        'Working workshops are reserved automatically. Other houses can keep a selected use.'
       )
     "
     >ℹ</abbr

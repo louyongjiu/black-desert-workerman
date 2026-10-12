@@ -1,3 +1,4 @@
+import { repairHousingChoice, townReservations } from "../housing/core.mjs";
 import { optimizeSkills, plantzoneProfit } from "./calculations.mjs";
 import { connectionCosts } from "./graph.mjs";
 
@@ -166,6 +167,9 @@ export function prepareValues(snapshot, notify = () => {}) {
     fixedInfrastructure = [];
   const infrastructureTowns = new Set([
     ...snapshot.townIds,
+    ...Object.keys(snapshot.houseReservations || {})
+      .map((key) => snapshot.regionInfo[snapshot.houses[key].affTown]?.waypoint)
+      .filter(Boolean),
     snapshot.storageTown,
     ...Object.keys(snapshot.storagePersonal)
       .filter((key) => snapshot.storagePersonal[key] > 0)
@@ -176,8 +180,35 @@ export function prepareValues(snapshot, notify = () => {}) {
     const townKey = townKeys[town];
     const warehouse = town === snapshot.storageTown;
     const workerTown = snapshot.townIds.includes(town);
+    const locks = townReservations(
+      snapshot.houses || {},
+      snapshot.houseReservations || {},
+      townKey
+    );
+    const dynamicHousing = Object.keys(locks).length > 0;
+    const freeLodging = 1 + Number(snapshot.lodgingP2W[townKey] || 0);
+    const freeStorage =
+      snapshot.baseStorage +
+      Number(snapshot.storageP2W[townKey] || 0) -
+      Number(snapshot.storagePersonal[townKey] || 0);
+    let table = snapshot.housing[townKey];
+    if (dynamicHousing) {
+      const repaired = {};
+      for (const [lodging, list] of Object.entries(table || {}))
+        for (const old of list) {
+          const c = repairHousingChoice(
+            snapshot.houses,
+            townKey,
+            locks,
+            old,
+            Number(lodging)
+          );
+          if (c) (repaired[c.lodging] ||= []).push(c);
+        }
+      table = repaired;
+    }
     const choices = housingChoices(
-      snapshot.housing[townKey],
+      table,
       1 + Number(snapshot.lodgingP2W[townKey] || 0),
       snapshot.baseStorage +
         Number(snapshot.storageP2W[townKey] || 0) -
@@ -186,10 +217,18 @@ export function prepareValues(snapshot, notify = () => {}) {
       warehouse ? itemKeys.length + 1 : 0,
       snapshot.budget
     );
-    if (!choices.length)
+    if (!choices.length && !dynamicHousing)
       throw new Error(`城镇 ${town} 的住房或个人仓储需求无法在预算内满足`);
-    const entry = { town, townKey, warehouse, choices };
-    if (!workerTown && !warehouse)
+    const entry = {
+      town,
+      townKey,
+      warehouse,
+      choices,
+      dynamicHousing,
+      freeLodging,
+      freeStorage,
+    };
+    if (!workerTown && !warehouse && !dynamicHousing)
       fixedInfrastructure.push({ town, townKey, ...choices[0] });
     else infrastructure.push(entry);
   }

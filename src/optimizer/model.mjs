@@ -1,62 +1,7 @@
 import { trimGraph } from "./graph.mjs";
 
-class SparseModel {
-  constructor() {
-    this.colCost = [];
-    this.colLower = [];
-    this.colUpper = [];
-    this.integrality = [];
-    this.rowLower = [];
-    this.rowUpper = [];
-    this.starts = [0];
-    this.indices = [];
-    this.values = [];
-  }
-  variable(cost = 0, upper = 1, integer = true, lower = 0) {
-    const index = this.colCost.length;
-    this.colCost.push(cost);
-    this.colLower.push(lower);
-    this.colUpper.push(upper);
-    this.integrality.push(integer ? 1 : 0);
-    return index;
-  }
-  row(terms, lower = -Infinity, upper = Infinity) {
-    const summed = new Map();
-    for (const [index, value] of terms)
-      summed.set(index, (summed.get(index) || 0) + value);
-    for (const [index, value] of summed)
-      if (value !== 0) {
-        this.indices.push(index);
-        this.values.push(value);
-      }
-    this.starts.push(this.indices.length);
-    this.rowLower.push(lower);
-    this.rowUpper.push(upper);
-  }
-  finish() {
-    const numCols = this.colCost.length,
-      numRows = this.rowLower.length;
-    return {
-      numCols,
-      numRows,
-      sense: -1,
-      colCost: Float64Array.from(this.colCost),
-      colLower: Float64Array.from(this.colLower),
-      colUpper: Float64Array.from(this.colUpper),
-      integrality: Int32Array.from(this.integrality),
-      rowLower: Float64Array.from(this.rowLower),
-      rowUpper: Float64Array.from(this.rowUpper),
-      matrix: {
-        format: "csr",
-        numRows,
-        numCols,
-        starts: Int32Array.from(this.starts),
-        indices: Int32Array.from(this.indices),
-        values: Float64Array.from(this.values),
-      },
-    };
-  }
-}
+import { SparseModel } from "./sparse.mjs";
+import { addHousingVariables, housingTerms } from "../housing/core.mjs";
 
 // Joint node selection, assignments, housing and rooted flows, following
 // bdo-empire v0.8.2 (Unlicense). Storage is additionally modelled at one warehouse.
@@ -144,8 +89,40 @@ export function buildModel(snapshot, prepared) {
     -Infinity,
     0
   );
-  const housingVars = [];
+  const housingVars = [],
+    housingModels = [];
   for (const town of prepared.infrastructure) {
+    if (town.dynamicHousing) {
+      const housing = addHousingVariables(
+        builder,
+        snapshot.houses,
+        town.townKey,
+        snapshot.houseReservations
+      );
+      housingModels.push({ ...housing, town });
+      builder.row(
+        [
+          ...(byTown.get(town.town) || []).map((a) => [a.index, 1]),
+          ...housingTerms(housing, "lodging").map(([i, v]) => [i, -v]),
+        ],
+        -Infinity,
+        town.freeLodging
+      );
+      builder.row(
+        [
+          ...(town.warehouse
+            ? [...items.values()]
+                .map((i) => [i, 1])
+                .concat([[anyProduction, 1]])
+            : []),
+          ...housingTerms(housing, "storage").map(([i, v]) => [i, -v]),
+        ],
+        -Infinity,
+        town.freeStorage
+      );
+      budget.push(...housingTerms(housing, "cost"));
+      continue;
+    }
     const choices = town.choices.map((choice) => ({
       ...choice,
       town: town.town,
@@ -260,6 +237,7 @@ export function buildModel(snapshot, prepared) {
     nodeVars,
     assignments,
     housingVars,
+    housingModels,
     itemVars: items,
     productionVar: anyProduction,
     flowVars,

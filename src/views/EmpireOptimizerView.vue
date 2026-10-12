@@ -174,6 +174,7 @@ function download(value, filename) {
 function exportPlan() {
   const out = JSON.parse(JSON.stringify(user.$state));
   delete out.optimizerUndo;
+  delete out.housingUndo;
   out.userWorkers = result.value.workers;
   out.farmingEnable = false;
   out.tradeDestinations = {};
@@ -186,6 +187,13 @@ function exportPlan() {
     result.value.storageTown === 1343 ||
     out.activateAncado;
   out.optimizerPlan = JSON.parse(JSON.stringify(result.value));
+  // Fixed workshop uses must survive the gathering-only export.
+  out.houseReservations = Object.fromEntries(
+    Object.entries(result.value.houseReservations || {}).map(([key, lock]) => [
+      key,
+      { usage: lock.usage },
+    ])
+  );
   out.optimizerPlan.appliedSignature = configurationSignature(out);
   download(out, "optimized_empire.json");
 }
@@ -195,11 +203,11 @@ function exportPlan() {
   <main class="optimizer">
     <div class="intro">
       <div>
-        <h1>{{ $t('帝国优化') }}</h1>
+        <h1>{{ $t("帝国优化") }}</h1>
         <p>
           {{
             $t(
-              '给定贡献点预算，规划采集点、工人城镇、连接和住房。计算在当前浏览器完成。'
+              "给定贡献点预算，规划采集点、工人城镇、连接和住房。计算在当前浏览器完成。"
             )
           }}
         </p>
@@ -211,20 +219,20 @@ function exportPlan() {
           consent = false;
         "
       >
-        {{ $t('撤销上次应用') }}
+        {{ $t("撤销上次应用") }}
       </button>
     </div>
     <p class="notice">
       {{
         $t(
-          '建设方案使用 40 级平均属性工人和建议技能。收益采用当前价格与资源设置，尚不分配你已有的实际工人。'
+          "建设方案使用 40 级平均属性工人和建议技能。收益采用当前价格与资源设置，尚不分配你已有的实际工人。"
         )
       }}
     </p>
     <section class="panel">
       <div class="controls">
         <label
-          >{{ $t('贡献点预算')
+          >{{ $t("贡献点预算")
           }}<input
             v-model.number="budget"
             :aria-label="$t('贡献点预算')"
@@ -234,33 +242,33 @@ function exportPlan() {
             :disabled="optimizer.running"
         /></label>
         <label
-          >{{ $t('计算上限')
+          >{{ $t("计算上限")
           }}<select
             v-model.number="timeLimit"
             :aria-label="$t('计算上限')"
             :disabled="optimizer.running"
           >
-            <option :value="10">{{ $t('10 秒') }}</option>
-            <option :value="30">{{ $t('30 秒') }}</option>
-            <option :value="120">{{ $t('2 分钟') }}</option>
-            <option :value="300">{{ $t('5 分钟') }}</option>
+            <option :value="10">{{ $t("10 秒") }}</option>
+            <option :value="30">{{ $t("30 秒") }}</option>
+            <option :value="120">{{ $t("2 分钟") }}</option>
+            <option :value="300">{{ $t("5 分钟") }}</option>
           </select></label
         >
         <label
-          >{{ $t('采集点候选')
+          >{{ $t("采集点候选")
           }}<select
             v-model.number="maxPlantzones"
             :aria-label="$t('采集点候选')"
             :disabled="optimizer.running"
           >
-            <option :value="20">{{ $t('20 个 · 小规模验证') }}</option>
-            <option :value="50">{{ $t('50 个') }}</option>
-            <option :value="100">{{ $t('100 个') }}</option>
-            <option :value="370">{{ $t('全部有有效价格的采集点') }}</option>
+            <option :value="20">{{ $t("20 个 · 小规模验证") }}</option>
+            <option :value="50">{{ $t("50 个") }}</option>
+            <option :value="100">{{ $t("100 个") }}</option>
+            <option :value="370">{{ $t("全部有有效价格的采集点") }}</option>
           </select></label
         >
         <label
-          >{{ $t('产物仓库')
+          >{{ $t("产物仓库")
           }}<select
             v-model.number="storageTown"
             :aria-label="$t('产物仓库')"
@@ -279,17 +287,24 @@ function exportPlan() {
       <p class="muted">
         {{
           $t(
-            '预算包括节点、住宿、产物仓库和已设置的个人仓储；不包含围栏、工作坊、自定义任务和贸易成本。'
+            "The budget includes nodes, lodging, storage and reserved houses. Fences, workshop production, custom jobs and trade tasks are not optimized."
+          )
+        }}
+      </p>
+      <p v-if="user.workersWorkshopCount">
+        {{
+          $t(
+            "Workshop routes and material storage are not included automatically. This preview plans gathering workers."
           )
         }}
       </p>
       <fieldset :disabled="optimizer.running">
-        <legend>{{ $t('允许招募工人的城镇') }}</legend>
+        <legend>{{ $t("允许招募工人的城镇") }}</legend>
         <div class="town-tools">
           <button @click="townIds = [...game.townsWithLodging]">
-            {{ $t('全部') }}</button
-          ><button @click="townIds = []">{{ $t('清除') }}</button
-          ><span>{{ $t('已选') }} {{ townIds.length }} {{ $t('个') }}</span>
+            {{ $t("全部") }}</button
+          ><button @click="townIds = []">{{ $t("清除") }}</button
+          ><span>{{ $t("已选") }} {{ townIds.length }} {{ $t("个") }}</span>
         </div>
         <div class="towns">
           <label v-for="id in game.townsWithLodging" :key="id"
@@ -305,8 +320,8 @@ function exportPlan() {
           type="checkbox"
           :disabled="optimizer.running"
         />
-        {{ $t('保留并连接当前') }} {{ user.grindTakenList.length }}
-        {{ $t('个刷怪节点') }}</label
+        {{ $t("保留并连接当前") }} {{ user.grindTakenList.length }}
+        {{ $t("个刷怪节点") }}</label
       >
       <div class="actions">
         <button
@@ -314,23 +329,23 @@ function exportPlan() {
           :disabled="optimizer.running || !townIds.length || market.apiFetching"
           @click="start"
         >
-          {{ $t('开始优化') }}</button
+          {{ $t("开始优化") }}</button
         ><button v-if="optimizer.running" @click="optimizer.stop">
-          {{ $t('停止并保留当前方案') }}</button
+          {{ $t("停止并保留当前方案") }}</button
         ><button
           :disabled="market.apiFetching || optimizer.running"
           @click="reloadPrices"
         >
-          {{ market.apiFetching ? $t('更新价格中…') : $t('更新价格') }}
+          {{ market.apiFetching ? $t("更新价格中…") : $t("更新价格") }}
         </button>
       </div>
       <p class="muted">
         {{
           market.apiDatetime
-            ? $t('价格更新于 {date}', {
+            ? $t("价格更新于 {date}", {
                 date: new Date(market.apiDatetime).toLocaleString(locale),
               })
-            : $t('使用当前缓存与自定义价格；缺价的采集点会跳过。')
+            : $t("使用当前缓存与自定义价格；缺价的采集点会跳过。")
         }}
       </p>
     </section>
@@ -344,57 +359,57 @@ function exportPlan() {
       aria-live="polite"
     >
       {{ $t(stages[optimizer.stage] || optimizer.stage) }} ·
-      {{ display(elapsed, 1) }} {{ $t('秒') }}
+      {{ display(elapsed, 1) }} {{ $t("秒") }}
       <span v-if="Number.isFinite(gap)">
-        {{ $t('· 求解差距') }} {{ display(gap * 100) }}%</span
+        {{ $t("· 求解差距") }} {{ display(gap * 100) }}%</span
       >
       <span v-if="optimizer.progress.completed">
-        {{ $t('· 已处理') }} {{ optimizer.progress.completed }} /
+        {{ $t("· 已处理") }} {{ optimizer.progress.completed }} /
         {{ optimizer.progress.total }}</span
       >
     </section>
     <section v-if="result" class="panel result">
       <div class="intro">
-        <h2>{{ applied ? $t('当前已应用的方案') : $t('方案预览') }}</h2>
+        <h2>{{ applied ? $t("当前已应用的方案") : $t("方案预览") }}</h2>
         <span>{{ $t(statusLabel) }}</span>
       </div>
       <div class="metrics">
         <div>
-          <span>{{ $t('日收益 · 百万银币') }}</span
+          <span>{{ $t("日收益 · 百万银币") }}</span
           ><strong>{{ display(result.profitSilverPerDay / 1e6) }}</strong>
         </div>
         <div>
-          <span>{{ $t('贡献点 · 预算') }} {{ result.budget }}</span
+          <span>{{ $t("贡献点 · 预算") }} {{ result.budget }}</span
           ><strong>{{ display(result.totalCP) }}</strong>
         </div>
         <div>
-          <span>{{ $t('节点 / 住房与仓库') }}</span
+          <span>{{ $t("节点 / 住房与仓库") }}</span
           ><strong>{{ result.nodeCP }} / {{ result.infrastructureCP }}</strong>
         </div>
         <div>
-          <span>{{ $t('建议工人') }}</span
+          <span>{{ $t("建议工人") }}</span
           ><strong>{{ result.workers.length }}</strong>
         </div>
       </div>
       <p class="muted">
-        {{ $t('在') }} {{ result.consideredPlantzones }}
-        {{ $t('个采集点候选内优化。') }}{{ result.missingPrices.length }}
-        {{ $t('个采集点因缺价跳过；候选、平均属性与技能假设会影响结果。') }}
+        {{ $t("在") }} {{ result.consideredPlantzones }}
+        {{ $t("个采集点候选内优化。") }}{{ result.missingPrices.length }}
+        {{ $t("个采集点因缺价跳过；候选、平均属性与技能假设会影响结果。") }}
       </p>
       <p v-if="stale" class="error">
-        {{ $t('当前工人或基础设施设置已变化，请重新优化后应用。') }}
+        {{ $t("当前工人或基础设施设置已变化，请重新优化后应用。") }}
       </p>
       <p v-if="valueStale" class="notice">
         {{
           $t(
-            '价格或资源设置已变化，预览收益和求解差距来自原快照；重新优化可更新方案。'
+            "价格或资源设置已变化，预览收益和求解差距来自原快照；重新优化可更新方案。"
           )
         }}
       </p>
       <p v-if="!canReplaceGatheringWorkers(user)" class="notice">
         {{
           $t(
-            '现有帝国包含其他任务。首版可导出建设方案，直接应用暂仅支持采集与空闲工人。'
+            "现有帝国包含其他任务。首版可导出建设方案，直接应用暂仅支持采集与空闲工人。"
           )
         }}
       </p>
@@ -402,25 +417,25 @@ function exportPlan() {
         v-if="user.optimizerPlan && !applied && !optimizer.result"
         class="notice"
       >
-        {{ $t('保存方案的设置已变化，首页已恢复常规路由。') }}
+        {{ $t("保存方案的设置已变化，首页已恢复常规路由。") }}
       </p>
       <div class="actions">
         <button :disabled="optimizer.running || stale" @click="exportPlan">
-          {{ $t('导出方案 · 可导入首页') }}</button
+          {{ $t("导出方案 · 可导入首页") }}</button
         ><button
           v-if="!applied"
           class="primary"
           :disabled="!canApply || !consent"
           @click="apply"
         >
-          {{ $t('应用建议工人和连接') }}</button
-        ><span v-else class="success">{{ $t('已保留求解路径') }}</span>
+          {{ $t("应用建议工人和连接") }}</button
+        ><span v-else class="success">{{ $t("已保留求解路径") }}</span>
       </div>
       <label v-if="!applied && canApply" class="check"
         ><input v-model="consent" type="checkbox" />
         {{
           $t(
-            '我确认替换当前采集与空闲工人，并使用方案中的刷怪保留节点；应用后可撤销。'
+            "我确认替换当前采集与空闲工人，并使用方案中的刷怪保留节点；应用后可撤销。"
           )
         }}</label
       >
@@ -454,11 +469,11 @@ function exportPlan() {
         <table>
           <thead>
             <tr>
-              <th>{{ $t('采集点') }}</th>
-              <th>{{ $t('工人城镇') }}</th>
-              <th>{{ $t('建议工人') }}</th>
-              <th>{{ $t('日收益 · 百万银币') }}</th>
-              <th>{{ $t('连接节点数') }}</th>
+              <th>{{ $t("采集点") }}</th>
+              <th>{{ $t("工人城镇") }}</th>
+              <th>{{ $t("建议工人") }}</th>
+              <th>{{ $t("日收益 · 百万银币") }}</th>
+              <th>{{ $t("连接节点数") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -475,12 +490,12 @@ function exportPlan() {
         </table>
       </div>
       <details>
-        <summary>{{ $t('住房与求解详情') }}</summary>
+        <summary>{{ $t("住房与求解详情") }}</summary>
         <p>
-          {{ $t('节点、住房与仓库已复核。HiGHS') }}
-          {{ result.solverVersion || '1.15.1' }} ·
-          {{ result.modelSize.variables }} {{ $t('个变量 /') }}
-          {{ result.modelSize.constraints }} {{ $t('个约束。') }}
+          {{ $t("节点、住房与仓库已复核。HiGHS") }}
+          {{ result.solverVersion || "1.15.1" }} ·
+          {{ result.modelSize.variables }} {{ $t("个变量 /") }}
+          {{ result.modelSize.constraints }} {{ $t("个约束。") }}
         </p>
         <ul>
           <li
@@ -489,13 +504,41 @@ function exportPlan() {
             )"
             :key="town.town"
           >
-            {{ nodeName(town.town) }}：{{ town.workerCount }} {{ $t('名工人，')
-            }}{{ town.cost }} {{ $t('CP')
+            {{ nodeName(town.town) }}：{{ town.workerCount }} {{ $t("名工人，")
+            }}{{ town.cost }} {{ $t("CP")
             }}<span v-if="town.storageCount"
-              >，{{ town.storageCount }} {{ $t('个产物仓储槽位') }}</span
+              >，{{ town.storageCount }} {{ $t("个产物仓储槽位") }}</span
             >
           </li>
         </ul>
+        <p>
+          {{ $t("Reserved house uses are included in the housing budget.") }}
+          <router-link to="/housecraft">{{
+            $t("Housing planner")
+          }}</router-link>
+        </p>
+        <details
+          v-for="town in result.housing.filter((t) => t.dynamicHousing)"
+          :key="town.townKey"
+        >
+          <summary>
+            {{ nodeName(town.town) }} · {{ $t("Reserved house uses") }}
+          </summary>
+          <ul>
+            <li
+              v-for="hk in town.indices.filter((k) => game.houseInfo[k])"
+              :key="hk"
+            >
+              {{ game.uloc.char[hk] || hk }} ·
+              {{
+                town.reservations?.[hk]?.automatic
+                  ? $t("Working workshop")
+                  : game.uloc.housetype[town.usages[town.indices.indexOf(hk)]]
+              }}
+              · {{ game.houseCost(hk) }} {{ $t("CP") }}
+            </li>
+          </ul>
+        </details>
       </details>
     </section>
   </main>

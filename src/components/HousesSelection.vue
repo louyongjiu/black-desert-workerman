@@ -4,6 +4,7 @@ import {useGameStore} from '../stores/game'
 import {formatFixed} from '../util.js'
 import WorkerJobDescription from '../components/WorkerJobDescription.vue'
 import ItemIcon from '../components/lo/ItemIcon.vue'
+import HouseReservations from './HouseReservations.vue'
 
 export default {
   setup() {
@@ -31,6 +32,7 @@ export default {
   components: {
     WorkerJobDescription,
     ItemIcon,
+    HouseReservations,
   },
 
   data: () => ({
@@ -63,7 +65,7 @@ export default {
     },
 
     bestLookup() {
-      return this.gameStore.lsLookup(this.tk, this.wantLodging, this.wantStorage)
+      return this.userStore.townsInfra[this.tk]
     },
 
     storageViewCount() {
@@ -102,10 +104,11 @@ export default {
 
     houseCraftPickedTooltip(tk) {
       const ret = []
-      this.userStore.townsInfra[tk].indices.forEach((hk, i) => {
+      const plan=this.userStore.townsInfra[tk]
+      plan.indices?.forEach((hk, i) => {
         if (this.userStore.townsInfra[tk].states[i] == 0)
           return
-        const icon = this.userStore.townsInfra[tk].states[i] == 1 ? this.gameStore.houseStorage(hk)+'📦' : this.gameStore.houseLodging(hk)+'🛏️'
+        const icon = plan.states[i] == 1 ? this.gameStore.houseStorage(hk)+'📦' : plan.states[i] == 2 ? this.gameStore.houseLodging(hk)+'🛏️' : plan.reservations?.[hk]?.automatic ? this.$t('Working workshop') : this.gameStore.uloc.housetype[plan.usages?.[i] ?? 0]
         ret.push(icon + ' ' + this.gameStore.uloc.char[hk])
       })
       return ret.join('\n')
@@ -345,6 +348,9 @@ export default {
           : $t('FAILED')
       }}</pre>
     </details>
+    <p v-if="bestLookup?.pending">{{ $t('Calculating housing') }}</p>
+    <p v-else-if="bestLookup?.error" role="alert">{{ $t(bestLookup.error) }}</p>
+    <HouseReservations :town-key="Number(tk)" />
   </template>
 </template>
 

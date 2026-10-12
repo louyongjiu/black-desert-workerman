@@ -2,6 +2,8 @@
 
 联合选择采集点、工人城镇、连接节点和住房，使用 `highs@1.15.3` 的 HiGHS 1.15.1 WASM，在独立 Web Worker 中求解。
 
+住房规划同时融合 [bdo-housecraft 0.3.18](https://github.com/Thell/bdo-housecraft/tree/3af0b47113c4709afab148ae2d3fa83748e08ac6) 的房屋依赖和用途互斥模型。存在手动保留或工作工坊占用的城镇按房屋建模，其他城镇继续使用原有预计算表；共享前置房屋只计一次成本。详细规则见 `src/housing/README.md`。
+
 模型和九技能候选搜索改写自 [Thell/bdo-empire v0.8.2](https://github.com/Thell/bdo-empire/tree/v0.8.2)，上游提交为 `955eddc50ecb89d06fe409a9c3136522ee4c637c`；其项目许可证声明为 [Unlicense](https://github.com/Thell/bdo-empire/blob/v0.8.2/pyproject.toml)。HiGHS JavaScript 包采用 MIT 许可证，随 npm 包保留其许可证。
 
 发布目录包含完整的 HiGHS 与 highs-js 许可证，源文件位于 `public/licenses/highs.txt`，访问路径为 `/workerman/licenses/highs.txt`。

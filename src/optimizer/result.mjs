@@ -1,4 +1,5 @@
 import { shortestPath } from "./graph.mjs";
+import { decodeHousing } from "../housing/core.mjs";
 
 export function assertFeasibleColumns(data, columns, tolerance = 1e-5) {
   if (columns.length !== data.numCols)
@@ -87,6 +88,29 @@ export function decodeResult(problem, columns) {
       const storageCount = town.warehouse
         ? itemKeys.length + (assignments.length ? 1 : 0)
         : 0;
+      if (town.dynamicHousing) {
+        const housingModel = problem.housingModels.find(
+          (h) => h.town.town === town.town
+        );
+        const choice = decodeHousing(
+          housingModel,
+          columns,
+          workerCount - town.freeLodging,
+          storageCount - town.freeStorage
+        );
+        return {
+          ...choice,
+          houseLodging: choice.lodging,
+          houseStorage: choice.storage,
+          lodging: choice.lodging + town.freeLodging,
+          storage: choice.storage + town.freeStorage,
+          town: town.town,
+          townKey: town.townKey,
+          workerCount,
+          storageCount,
+          dynamicHousing: true,
+        };
+      }
       const choice = town.choices.find(
         (c) => c.lodging >= workerCount && c.storage >= storageCount
       );
@@ -130,6 +154,8 @@ export function decodeResult(problem, columns) {
     selectedNodeIds: [...used].sort((a, b) => a - b),
     grindRoutes,
     housing,
+    houseReservations: snapshot.houseReservations || {},
+    housingDataSignature: snapshot.housingDataSignature,
     workers,
     lockedNodeIds: snapshot.lockedNodeIds,
     storageTown: snapshot.storageTown,

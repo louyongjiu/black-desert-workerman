@@ -1,10 +1,13 @@
 import { configurationSignature } from "./snapshot.mjs";
+import { housingDataSignature } from "../housing/core.mjs";
 
 export function appliedRouting(user, game) {
   const plan = user.optimizerPlan;
   if (
     !plan ||
     plan.appliedSignature !== configurationSignature(user) ||
+    (plan.housingDataSignature &&
+      plan.housingDataSignature !== housingDataSignature(game.houseInfo)) ||
     !game.ready
   )
     return null;
