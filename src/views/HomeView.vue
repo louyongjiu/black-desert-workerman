@@ -3,6 +3,7 @@ import LocalizedFileInput from '../components/LocalizedFileInput.vue'
 import draggable from "vuedraggable";
 import {useGameStore} from '../stores/game'
 import {useUserStore} from '../stores/user'
+import {useOptimizerStore} from '../stores/optimizer'
 import {useRoutingStore} from '../stores/routing'
 import {useMarketStore} from '../stores/market'
 import {useMapStore} from '../stores/map'
@@ -311,26 +312,18 @@ export default {
       
       console.log('import parsed')
 
-      // "this.userStore = json" but better
-      this.userStore.$patch(json)
-      for (const key of ['houseReservations', 'housingPlans']) {
-        if (Object.prototype.hasOwnProperty.call(json, key)) this.userStore[key] = json[key]
+      // Replace provided state fields, including empty maps, in one update.
+      if (Object.prototype.hasOwnProperty.call(json, 'optimizerPlan')) {
+        const optimizer = useOptimizerStore()
+        optimizer.stop()
+        optimizer.result = null
+        optimizer.draftOptions = null
+        optimizer.lastOptions = json.optimizerPlan?.optimizationOptions || null
       }
-
-      // handle file entries that are empty 
-      if (json.lodgingTaken && Object.keys(json.lodgingTaken).length > 0) {
-        console.log('overwriting lodgingTaken')
-        this.userStore.lodgingTaken = json.lodgingTaken
-      }
-      else
-        console.log('keeping lodgingTaken')
-        
-      if (json.lodgingP2W && Object.keys(json.lodgingP2W).length > 0) {
-        console.log('overwriting lodgingP2W')
-        this.userStore.lodgingP2W = json.lodgingP2W
-      }
-      else
-        console.log('keeping lodgingP2W')
+      this.userStore.$patch(state => {
+        for (const [key, value] of Object.entries(json)) state[key] = value
+        if (Object.prototype.hasOwnProperty.call(json, 'optimizerPlan')) state.optimizerUndo = json.optimizerUndo || null
+      })
         
       console.log('import done')
       this.importDialogVisible = false
@@ -346,6 +339,7 @@ export default {
         optimizerPlan: this.userStore.optimizerPlan,
         houseReservations: this.userStore.houseReservations,
         housingPlans: this.userStore.housingPlans,
+        workshopStorage: this.userStore.workshopStorage,
         storagePersonal: this.userStore.storagePersonal,
         storageP2W: this.userStore.storageP2W,
         storageVP: this.userStore.storageVP,

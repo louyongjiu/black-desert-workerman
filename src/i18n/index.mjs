@@ -3,6 +3,8 @@ import research from './research.mjs';
 import optimizer from './optimizer.mjs';
 import about from './about.mjs';
 import housing from './housing.mjs';
+import empireHousing from './empireHousing.mjs';
+import housingWorkbench from './housingWorkbench.mjs';
 import { common as extra, optimizer as optimizerExtra } from './extra.mjs';
 
 export const languages = Object.freeze({
@@ -36,6 +38,8 @@ function addTable(table, sourceIsEnglish = true) {
 }
 addTable(core);
 addTable(housing);
+addTable(empireHousing);
+addTable(housingWorkbench);
 addTable(research);
 addTable(optimizer, false);
 addTable(extra);

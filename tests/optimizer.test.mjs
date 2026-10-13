@@ -7,6 +7,13 @@ import {
   housingDataSignature,
 } from "../src/housing/core.mjs";
 import { solveHousing } from "../src/housing/solve.mjs";
+import {
+  employeeCounts,
+  storageRequirements,
+} from "../src/housing/requirements.mjs";
+import { validAppliedPlan, housingFromPlan } from "../src/housing/empire.mjs";
+import { mergeEmpire } from "../src/optimizer/application.mjs";
+import { connectionTree, treePath } from "../src/optimizer/graph.mjs";
 import vm from "node:vm";
 import loadHighs from "highs";
 import { buildModel } from "../src/optimizer/model.mjs";
@@ -363,8 +370,20 @@ function realGame() {
     configurationSignature,
     normalizeReservations,
     housingDataSignature,
+    employeeCounts,
+    storageRequirements,
+    validAppliedPlan,
     useHousingStore: () => ({
       lookup(tk, l, s) {
+        if (validAppliedPlan(user, game)) {
+          const plan = housingFromPlan(user.optimizerPlan, tk);
+          if (
+            plan &&
+            Math.max(0, plan.wantLodging) === Math.max(0, l) &&
+            Math.max(0, plan.wantStorage) === Math.max(0, s)
+          )
+            return plan;
+        }
         const reservations = normalizeReservations(game.houseInfo, user);
         if (
           !Object.keys(reservations).some(
@@ -579,6 +598,8 @@ test("home housing and workshop contributions count their shared prerequisite un
     [first.key]: { manualCp: 999 },
     [second.key]: { manualCp: 999 },
   };
+  user.storagePersonal[88] = 3;
+  user.workshopStorage[88] = { coverage: "personal", confirmed: true };
   const r = solveHousing(highs, {
     houses: game.houseInfo,
     townKey: 88,
@@ -590,6 +611,117 @@ test("home housing and workshop contributions count their shared prerequisite un
   assert.equal(user.workshopTotalCP, first.CP + second.CP);
   assert.equal(user.townInfra(88, 2, 0).cost + user.workshopTotalCP, r.cost);
   assert.equal(r.indices.filter((k) => k === first.needHouseKey).length, 1);
+});
+
+test("real mixed empire retains workshop and idle workers, reuses their routes and reproduces the applied housing budget", async () => {
+  const { game, user, market } = realGame();
+  await game.fetchPlannerData();
+  const factory = (hk) => ({
+    tnk: 1,
+    charkey: 7572,
+    level: 35,
+    label: "same",
+    wspdSheet: 150,
+    mspdSheet: 8,
+    luckSheet: 10,
+    skills: [],
+    job: { kind: "workshop", hk },
+  });
+  const a = factory(2141),
+    b = factory(2143),
+    idle = { ...factory(2141), tnk: 61, job: null, level: 25 };
+  user.userWorkers = [a, b, idle, { ...idle }, { ...idle }];
+  user.storagePersonal[5] = 3;
+  user.workshopStorage[5] = { coverage: "personal", confirmed: true };
+  const route = {
+    autotakenNodes: new Set(),
+    pzWsJobs: {
+      ws: [a, b].map((worker) => {
+        const path = treePath(connectionTree(game.nodes, game.links, 61), 1);
+        return { worker, usedPath: path };
+      }),
+    },
+  };
+  route.pzWsJobs.ws.forEach((r) =>
+    r.usedPath.forEach((id) => route.autotakenNodes.add(id))
+  );
+  const snapshot = createSnapshot(
+    game,
+    user,
+    market,
+    {
+      townIds: [1],
+      storageTown: 601,
+      budget: 80,
+      timeLimit: 10,
+      maxPlantzones: 20,
+      includeGrind: true,
+    },
+    route
+  );
+  const result = solveSnapshot(highs, snapshot);
+  assert.equal(result.retainedWorkers.length, 5);
+  assert.equal(result.fixedWorkshopRoutes.length, 2);
+  assert.equal(
+    result.housing.find((t) => t.townKey === 5).housingMethod,
+    "lookup"
+  );
+  assert.equal(
+    result.housing.find((t) => t.townKey === 88).housingMethod,
+    "solve"
+  );
+  assert.ok(result.workers.length);
+  assert.ok(result.fixedBaselineCP > 0);
+  assert.ok(result.totalCP <= 80);
+  const merged = mergeEmpire(user, result);
+  user.userWorkers = merged.workers;
+  user.optimizerPlan = {
+    ...result,
+    fixedWorkerBindings: merged.bindings,
+    appliedSignature: configurationSignature(user),
+  };
+  const applied = appliedRouting(user, game);
+  assert.equal(applied.pzWsJobs.ws.length, 2);
+  assert.equal(user.userWorkers.filter((w) => w.job === null).length, 3);
+  assert.ok(user.userWorkers.includes(a));
+  assert.ok(user.userWorkers.includes(b));
+  assert.ok(user.userWorkers.includes(idle));
+  assert.equal(user.totalCP, result.totalCP);
+  for (const town of result.housing)
+    assert.equal(user.townsInfra[town.townKey].totalCost, town.cost);
+  const oldPrice = market.prices[5401];
+  market.prices[5401] = (oldPrice || 0) + 1;
+  assert.ok(appliedRouting(user, game));
+  user.houseReservations[2112] = { usage: 0 };
+  assert.equal(appliedRouting(user, game), null);
+});
+
+test("idle workers reserve lodging and fixed-demand budget failures are explained without deleting them", async () => {
+  const { game, user, market } = realGame();
+  await game.fetchPlannerData();
+  user.userWorkers = Array.from({ length: 3 }, () => ({
+    tnk: 1,
+    charkey: 7572,
+    level: 20,
+    label: "idle",
+    skills: [],
+    job: null,
+  }));
+  const snapshot = createSnapshot(game, user, market, {
+    townIds: [1],
+    storageTown: 601,
+    budget: 1,
+    timeLimit: 6,
+    maxPlantzones: 20,
+    includeGrind: true,
+  });
+  assert.equal(snapshot.fixedWorkerCounts[5], 3);
+  assert.throws(
+    () => solveSnapshot(highs, snapshot),
+    /Retained requirements need/
+  );
+  assert.equal(user.userWorkers.length, 3);
+  assert.equal(user.userWorkers[0].job, null);
 });
 
 test("serialized missing prices remain missing instead of becoming zero-valued prices", async () => {

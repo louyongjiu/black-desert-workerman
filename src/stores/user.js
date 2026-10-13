@@ -1,11 +1,12 @@
+import {employeeCounts, storageRequirements} from '../housing/requirements.mjs'
+import {validAppliedPlan} from '../housing/empire.mjs'
 import {translate} from '../i18n/index.mjs'
 import {defineStore} from "pinia";
 import {useGameStore} from './game'
 import {useRoutingStore} from './routing'
 import {searchSorted, formatFixed} from '../util.js'
 import {cyclesDaily as calculateCyclesDaily} from '../optimizer/calculations.mjs'
-import {normalizeReservations,housingDataSignature} from '../housing/core.mjs'
-import {configurationSignature} from '../optimizer/snapshot.mjs'
+import {normalizeReservations} from '../housing/core.mjs'
 import {useHousingStore} from './housing'
 
 export const useUserStore = defineStore({
@@ -25,6 +26,7 @@ export const useUserStore = defineStore({
     storageP2W: {},
     storageVP: false,
     storagePersonal: {},
+    workshopStorage: {},
     lodgingTaken: {},
     activateAncado: false,
     houseTaken: {},
@@ -362,7 +364,7 @@ export const useUserStore = defineStore({
         ret = w.job.cp
       if (gameStore.jobIsWorkshop(w.job)) {
         const workersAtWorkshop = this.workersWorkshop.filter(ww => ww.job.hk == w.job.hk).length
-        ret = useGameStore().houseCost(w.job.hk) / workersAtWorkshop
+        ret = useGameStore().houseCost(w.job.hk) / workersAtWorkshop + (useRoutingStore().wsJobsSharedConnectionCP.get(w)?.value || 0)
       }
       //console.log(`workerSharedConnectionCP ${w.label} = ${ret}`)
       return ret
@@ -765,21 +767,20 @@ export const useUserStore = defineStore({
       return undefined
     },
 
+    warehouseRequirements(state) {
+      const game=useGameStore()
+      if(!game.plannerReady)return {}
+      return storageRequirements(game,state)
+    },
+    housingWorkerCounts(state) {
+      const game=useGameStore()
+      return game.ready?employeeCounts(game,state.userWorkers):{}
+    },
     townsStoreItemkeys(state) {
-      const ret = {}
-      const gameStore = useGameStore()
-      if (!gameStore.ready) return ret
-      gameStore.townsWithRedirectableStorage.forEach(tnk => ret[gameStore.tnk2tk(tnk)] = new Set([]))
-      //console.log('townsStoreItemkeys::ret', ret)
-      state.workingWorkers.forEach(w => {
-        if (gameStore.jobIsPz(w.job)) {
-          const tk = gameStore.tnk2tk(w.job.storage)
-          //console.log('townsStoreItemkeys::tk', tk)
-          ret[tk] = new Set([...ret[tk], ...gameStore.plantzones[w.job.pzk].itemkeys])
-        }
-      })
-      //console.log('townsStoreItemkeys', ret)
-      return ret
+      const game=useGameStore(),requirements=state.warehouseRequirements
+      const result=Object.fromEntries(game.townsWithRedirectableStorage.map(tnk=>[game.tnk2tk(tnk),new Set()]))
+      for(const [tk,t] of Object.entries(requirements))result[tk]=new Set(Object.keys(t.items))
+      return result
     },
 
     baseStorage(state) {
@@ -794,9 +795,7 @@ export const useUserStore = defineStore({
       return normalizeReservations(useGameStore().houseInfo, state)
     },
     housingPlanValid(state) {
-      const plan=state.optimizerPlan
-      return Boolean(plan && plan.appliedSignature === configurationSignature(state)
-        && plan.housingDataSignature === housingDataSignature(useGameStore().houseInfo))
+      return validAppliedPlan(state,useGameStore())
     },
 
     townInfra: (state) => (tk, l, s, priority = 0) => {
@@ -806,33 +805,17 @@ export const useUserStore = defineStore({
       //`s` storage slots (for plantzones only for now)
       // at town `tk` with current user settings
       const gameStore = useGameStore()
-      if (!(tk in state.lodgingP2W))
-        state.lodgingP2W[tk] = 0
-      if (!(tk in state.storageP2W))
-        state.storageP2W[tk] = 0
-      if (!(tk in state.storagePersonal))
-        state.storagePersonal[tk] = 0
       const wantLodging = l
-        - state.lodgingP2W[tk]
+        - Number(state.lodgingP2W[tk] || 0)
         - 1
-      const wantStorage = s + (s > 0 ? 1 : 0)
-        + state.storagePersonal[tk]
-        - state.storageP2W[tk]
-        - state.baseStorage
-        //- (tk == 955 ? 3 : 0)  // oddy
-      //if (tk==1553) debugger
-      const applied = state.optimizerPlan
-      if (state.housingPlanValid) {
-        const saved = applied.housing.find(t => t.dynamicHousing && t.townKey == tk)
-        if (saved && Math.max(0,saved.wantLodging) === Math.max(0,wantLodging)
-          && Math.max(0,saved.wantStorage) === Math.max(0,wantStorage)) {
-          return {...saved,lodging:saved.houseLodging,storage:saved.houseStorage,
-            cost:saved.cost-(saved.workshopCP || 0),wantLodging,wantStorage,success:true}
-        }
-      }
-      const constrained = Object.keys(state.houseReservations).length || state.workersWorkshopCount || state.housingPlans[tk]
-      const best = constrained ? useHousingStore().lookup(tk,wantLodging,wantStorage,priority)
-        : gameStore.lsLookup(tk, wantLodging, wantStorage)
+      const stock=state.warehouseRequirements[tk]
+      const extra=(stock?.slots || 0)-Object.keys(stock?.items || {}).length
+      const personal=stock?.personal ?? Number(state.storagePersonal[tk] || 0)
+      const required=s+extra+personal+((stock?.spare || s>0)?1:0)
+      const wantStorage=required-Number(state.storageP2W[tk] || 0)-state.baseStorage
+      if(stock?.issues?.length || required>192)return {wantLodging,wantStorage,success:false,pending:false,cost:NaN,
+        lodging:NaN,storage:NaN,indices:[],states:[],error:stock?.issues?.[0] || 'Storage demand exceeds the warehouse capacity limit'}
+      const best=useHousingStore().lookup(tk,wantLodging,wantStorage,priority)
       return {...best,cost:best.cost-(best.workshopCP || 0),totalCost:best.cost}
     },
 
@@ -846,7 +829,7 @@ export const useUserStore = defineStore({
         const tk = lodgingTk  
         const oldInfra = state.townsInfra[tk]
         const newStorage = new Set([...state.townsStoreItemkeys[tk], ...itemkeys]).size
-        const newInfra = state.townInfra(tk, state.townWorkingWorkers(tk).length+dl, newStorage)
+        const newInfra = state.townInfra(tk, state.townWorkers(tk).length+dl, newStorage)
         const gameStore = useGameStore()
         const infraTooltip = gameStore.uloc.town[tk] + ` ${translate('housing:', state.selectedLang)}\n${translate('old:', state.selectedLang)} ${Math.max(0, oldInfra.wantLodging)}🛏️ + ${Math.max(0, oldInfra.wantStorage)}📦 = ${formatFixed(oldInfra.cost)} CP\n${translate('new:', state.selectedLang)} ${Math.max(0, newInfra.wantLodging)}🛏️ + ${Math.max(0, newInfra.wantStorage)}📦 = ${formatFixed(newInfra.cost)} CP`
         return {
@@ -857,7 +840,7 @@ export const useUserStore = defineStore({
       } else {  // !storageTk || lodgingTk != storageTk
         const lodgingOldInfra = state.townsInfra[lodgingTk]
         const lodgingOldStorageSlots = state.townsStoreItemkeys[lodgingTk].size
-        const lodgingNewInfra = state.townInfra(lodgingTk, state.townWorkingWorkers(lodgingTk).length+dl, lodgingOldStorageSlots)
+        const lodgingNewInfra = state.townInfra(lodgingTk, state.townWorkers(lodgingTk).length+dl, lodgingOldStorageSlots)
 
         const townsStorageInfras = []
         const storTks = []
@@ -875,7 +858,7 @@ export const useUserStore = defineStore({
         for (const storTk of storTks) {
           const storageOldInfra = state.townsInfra[storTk]
           const storageNewStorageSlots = new Set([...state.townsStoreItemkeys[storTk], ...itemkeys]).size
-          const storageNewInfra = state.townInfra(storTk, state.townWorkingWorkers(storTk).length+dl, storageNewStorageSlots)
+          const storageNewInfra = state.townInfra(storTk, state.townWorkers(storTk).length, storageNewStorageSlots)
           if (storageNewInfra.errL || storageNewInfra.errS) continue
           const storageCostDelta = isNaN(storageNewInfra.cost) ? Number.POSITIVE_INFINITY : storageNewInfra.cost - storageOldInfra.cost
           townsStorageInfras.push({storTk, storageOldInfra, storageNewInfra, storageCostDelta})
@@ -913,7 +896,7 @@ export const useUserStore = defineStore({
       state.occupiedWorkshops.forEach(hk=>{if(gameStore.houseInfo[hk])towns.add(gameStore.houseInfo[hk].affTown)})
       towns.forEach(tk => {
         const townInfra = this.townInfra(tk, 
-          state.townWorkingWorkers(tk).length, 
+          state.housingWorkerCounts[tk] || 0,
           state.townsStoreItemkeys[tk] ? state.townsStoreItemkeys[tk].size : 0,
           1
         )
@@ -1207,7 +1190,9 @@ export const useUserStore = defineStore({
     },
 
     workshopJobsDailyProfitPerCp(state) {
-      return state.workshopTotalProfit / (state.workshopTotalCP + state.workshopJobsTotalLodgingCost)
+      const shares=useRoutingStore().wsJobsSharedConnectionCP
+      const routes=state.workersWorkshop.reduce((sum,w)=>sum+(shares.get(w)?.value || 0),0)
+      return state.workshopTotalProfit / (state.workshopTotalCP + state.workshopJobsTotalLodgingCost + routes)
     },
 
     // --------------- CUSTOM ---------------- //

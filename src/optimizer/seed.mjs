@@ -1,3 +1,4 @@
+import { addedStorage } from "../housing/requirements.mjs";
 import { connectionTree, treePath } from "./graph.mjs";
 import { assertFeasibleColumns } from "./result.mjs";
 
@@ -5,15 +6,21 @@ import { assertFeasibleColumns } from "./result.mjs";
 // This is a quick lower bound; HiGHS still performs the joint optimization.
 export function greedySeed(problem) {
   const { graph, bases, snapshot, prepared } = problem;
-  const baseTree = connectionTree(graph.nodes, graph.links, bases);
+  const discounted = Object.fromEntries(
+    Object.entries(graph.nodes).map(([k, n]) => [
+      k,
+      { ...n, CP: (snapshot.fixedNodeIds || []).includes(n.key) ? 0 : n.CP },
+    ])
+  );
+  const baseTree = connectionTree(discounted, graph.links, bases);
   const trees = new Map(
     [...new Set(problem.assignments.map((a) => a.town))].map((root) => [
       root,
-      connectionTree(graph.nodes, graph.links, root),
+      connectionTree(discounted, graph.links, root),
     ])
   );
   const fixedPaths = [];
-  let selected = new Set(),
+  let selected = new Set(snapshot.fixedNodeIds || []),
     chosen = [],
     pickedPlants = new Set();
   for (const source of problem.locked) {
@@ -28,8 +35,13 @@ export function greedySeed(problem) {
     for (const town of prepared.infrastructure) {
       const count = assignments.filter((a) => a.town === town.town).length;
       const storage = town.warehouse
-        ? items.size + (assignments.length ? 1 : 0)
+        ? addedStorage(town, [...items], assignments.length > 0)
         : 0;
+      if (
+        town.storageLimit &&
+        storage + (town.fixedStorageCount || 0) > town.storageLimit
+      )
+        return null;
       const choice = (
         town.dynamicHousing ? town.choices : problem.housingVars
       ).find(

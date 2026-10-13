@@ -2,6 +2,9 @@ import { defineStore } from "pinia";
 import { useGameStore } from "./game";
 import { useUserStore } from "./user";
 import { useMarketStore } from "./market";
+import { useRoutingStore } from "./routing";
+import { mergeEmpire } from "../optimizer/application.mjs";
+import { planningDataSignature } from "../housing/requirements.mjs";
 import {
   createSnapshot,
   configurationSignature,
@@ -21,16 +24,23 @@ export const useOptimizerStore = defineStore("optimizer", {
     error: "",
     startedAt: 0,
     progress: {},
+    lastOptions: null,
+    draftOptions: null,
   }),
   actions: {
     start(options) {
       if (this.running) return;
       try {
+        if (useUserStore().wasmRouting && !useGameStore().wasmRouter)
+          throw new Error(
+            "Route planner is still loading; start again when ready"
+          );
         const snapshot = createSnapshot(
           useGameStore(),
           useUserStore(),
           useMarketStore(),
-          options
+          options,
+          useRoutingStore().routing
         );
         let client = clients.get(this.$state);
         if (!client) {
@@ -58,6 +68,7 @@ export const useOptimizerStore = defineStore("optimizer", {
           );
           clients.set(this.$state, client);
         }
+        this.lastOptions = plain(options);
         this.running = true;
         this.error = "";
         this.result = null;
@@ -73,12 +84,10 @@ export const useOptimizerStore = defineStore("optimizer", {
     stop() {
       clients.get(this.$state)?.stop();
     },
-    apply() {
+    apply(allowEmpty = false) {
       const user = useUserStore();
       if (this.running || !this.result)
         throw new Error("请等待优化完成或先停止计算");
-      if (!this.result.workers.length)
-        throw new Error("方案未分配采集工人，请增加预算或扩大候选范围");
       if (this.result.sourceSignature !== configurationSignature(user))
         throw new Error("工人或基础设施设置已变化，请重新优化");
       if (
@@ -88,30 +97,46 @@ export const useOptimizerStore = defineStore("optimizer", {
         throw new Error("价格或资源设置已变化，请重新优化");
       if (!canReplaceGatheringWorkers(user))
         throw new Error(
-          "首版应用支持仅有采集或空闲工人的帝国；其他任务可先保留并导出本方案"
+          "This empire contains unsupported active tasks; export a preview instead"
         );
+      if (
+        this.result.dataSignature &&
+        this.result.dataSignature !== planningDataSignature(useGameStore())
+      )
+        throw new Error("Game data changed; optimize again");
+      const merged = mergeEmpire(user, this.result, allowEmpty);
       const plan = plain(this.result);
-      user.optimizerUndo = plain({
+      const backup = plain({
         userWorkers: user.userWorkers,
         grindTakenList: user.grindTakenList,
         activateAncado: user.activateAncado,
         optimizerPlan: user.optimizerPlan,
       });
-      user.userWorkers = plan.workers;
-      user.grindTakenList = plan.lockedNodeIds;
-      user.activateAncado =
+      plan.fixedWorkerBindings = merged.bindings;
+      const activateAncado =
         plan.assignments.some((a) => a.town === 1343) ||
         plan.storageTown === 1343 ||
+        plan.fixedWorkshopRoutes?.some(
+          (r) => r.source === 1343 || r.target === 1343
+        ) ||
         user.activateAncado;
-      plan.appliedSignature = configurationSignature(user);
-      user.optimizerPlan = plan;
+      user.$patch((state) => {
+        state.optimizerUndo = backup;
+        state.userWorkers = merged.workers;
+        state.grindTakenList = plan.lockedNodeIds;
+        state.activateAncado = activateAncado;
+        plan.appliedSignature = configurationSignature(state);
+        state.optimizerPlan = plan;
+      });
     },
     undo() {
       const user = useUserStore();
       if (!user.optimizerUndo) return;
       const backup = plain(user.optimizerUndo);
-      user.$patch(backup);
-      user.optimizerUndo = null;
+      user.$patch((state) => {
+        for (const [key, value] of Object.entries(backup)) state[key] = value;
+        state.optimizerUndo = null;
+      });
     },
   },
 });

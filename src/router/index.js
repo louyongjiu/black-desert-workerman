@@ -91,7 +91,7 @@ router.beforeResolve(async to => {
   const game = useGameStore()
   game.dataError = ''
   try {
-    await loadRouteData(to.path, useUserStore(), game, useMarketStore())
+    await loadRouteData(to.path, useUserStore(), game, useMarketStore(), to.query)
   } catch (error) {
     game.dataError = 'Unable to load page data. Check your connection and try again.'
     throw error

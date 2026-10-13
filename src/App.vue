@@ -1,10 +1,11 @@
 <script setup>
-import { RouterLink, RouterView } from "vue-router";
+import { RouterLink, RouterView, useRoute } from "vue-router";
 import {useGameStore} from './stores/game'
 import {useUserStore} from './stores/user'
 import {useMapStore} from './stores/map'
 import {persistStore} from './persistence.mjs'
 const gameStore = useGameStore()
+const route = useRoute()
 function reloadPage() { window.location.reload() }
 </script>
 
@@ -46,8 +47,7 @@ export default {
       <nav>
         <RouterLink to="/">{{ $t('Home') }}</RouterLink>
         <RouterLink to="/plantzones">{{ $t('Plantzones') }}</RouterLink>
-        <RouterLink to="/optimizer">{{ $t('帝国优化') }}</RouterLink>
-        <RouterLink to="/housecraft">{{ $t('Housing planner') }}</RouterLink>
+        <RouterLink to="/optimizer" :class="{ 'router-link-exact-active': route.path === '/housecraft' }">{{ $t('帝国优化') }}</RouterLink>
         <RouterLink to="/resources">{{ $t('Resources') }}</RouterLink>
         <RouterLink to="/settings">{{ $t('Settings') }}</RouterLink>
         <RouterLink to="/about">{{ $t('About') }}</RouterLink>

@@ -1,4 +1,5 @@
-import { repairHousingChoice, townReservations } from "../housing/core.mjs";
+import { STORAGE_LIMIT, plantzoneItemKeys } from "../housing/requirements.mjs";
+import { repairHousingChoice, townHousingPolicy } from "../housing/core.mjs";
 import { optimizeSkills, plantzoneProfit } from "./calculations.mjs";
 import { connectionCosts } from "./graph.mjs";
 
@@ -17,6 +18,8 @@ export function housingChoices(
       if (!Number.isFinite(entry.cost) || entry.cost > budget) continue;
       const choice = {
         ...entry,
+        houseLodging: Number(capacity),
+        houseStorage: entry.storage,
         lodging: Math.min(maxWorkers, Number(capacity) + freeLodging),
         storage: Math.min(maxItems, entry.storage + freeStorage),
       };
@@ -77,11 +80,7 @@ export function prepareValues(snapshot, notify = () => {}) {
     const pzk = Number(key),
       plant = snapshot.plantzones[key];
     if (!plant || !snapshot.links[pzk]) continue;
-    const required = new Set(
-      Object.entries({ ...drop.unlucky, ...drop.unlucky_gi, ...drop.lucky })
-        .filter(([, quantity]) => quantity > 0)
-        .map(([item]) => item)
-    );
+    const required = new Set(plantzoneItemKeys(drop));
     const unavailable = [...required].filter(
       (item) =>
         snapshot.prices[item] === null ||
@@ -167,6 +166,9 @@ export function prepareValues(snapshot, notify = () => {}) {
     fixedInfrastructure = [];
   const infrastructureTowns = new Set([
     ...snapshot.townIds,
+    ...Object.keys({ ...snapshot.fixedWorkerCounts, ...snapshot.fixedStorage })
+      .map((k) => snapshot.regionInfo[k]?.waypoint)
+      .filter(Boolean),
     ...Object.keys(snapshot.houseReservations || {})
       .map((key) => snapshot.regionInfo[snapshot.houses[key].affTown]?.waypoint)
       .filter(Boolean),
@@ -180,17 +182,24 @@ export function prepareValues(snapshot, notify = () => {}) {
     const townKey = townKeys[town];
     const warehouse = town === snapshot.storageTown;
     const workerTown = snapshot.townIds.includes(town);
-    const locks = townReservations(
+    const { reservations: locks, housingMethod } = townHousingPolicy(
       snapshot.houses || {},
       snapshot.houseReservations || {},
       townKey
     );
-    const dynamicHousing = Object.keys(locks).length > 0;
-    const freeLodging = 1 + Number(snapshot.lodgingP2W[townKey] || 0);
+    const dynamicHousing = housingMethod === "solve";
+    const fixedWorkerCount = Number(snapshot.fixedWorkerCounts?.[townKey] || 0);
+    const stock = snapshot.fixedStorage?.[townKey];
+    const fixedItems = stock?.items || {};
+    const fixedSpare = stock?.spare || 0;
+    const fixedStorageCount =
+      stock?.total ?? Number(snapshot.storagePersonal[townKey] || 0);
+    const baseLodging = 1 + Number(snapshot.lodgingP2W[townKey] || 0);
+    const freeLodging = baseLodging - fixedWorkerCount;
     const freeStorage =
       snapshot.baseStorage +
       Number(snapshot.storageP2W[townKey] || 0) -
-      Number(snapshot.storagePersonal[townKey] || 0);
+      fixedStorageCount;
     let table = snapshot.housing[townKey];
     if (dynamicHousing) {
       const repaired = {};
@@ -209,13 +218,11 @@ export function prepareValues(snapshot, notify = () => {}) {
     }
     const choices = housingChoices(
       table,
-      1 + Number(snapshot.lodgingP2W[townKey] || 0),
-      snapshot.baseStorage +
-        Number(snapshot.storageP2W[townKey] || 0) -
-        Number(snapshot.storagePersonal[townKey] || 0),
+      freeLodging,
+      freeStorage,
       workerTown ? plantzoneIds.length : 0,
       warehouse ? itemKeys.length + 1 : 0,
-      snapshot.budget
+      Infinity
     );
     if (!choices.length && !dynamicHousing)
       throw new Error(`城镇 ${town} 的住房或个人仓储需求无法在预算内满足`);
@@ -225,11 +232,18 @@ export function prepareValues(snapshot, notify = () => {}) {
       warehouse,
       choices,
       dynamicHousing,
+      housingMethod,
       freeLodging,
       freeStorage,
+      baseLodging,
+      fixedWorkerCount,
+      fixedItems,
+      fixedSpare,
+      fixedStorageCount,
+      storageLimit: STORAGE_LIMIT,
     };
     if (!workerTown && !warehouse && !dynamicHousing)
-      fixedInfrastructure.push({ town, townKey, ...choices[0] });
+      fixedInfrastructure.push({ ...entry, ...choices[0] });
     else infrastructure.push(entry);
   }
   return {

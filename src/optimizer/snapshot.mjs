@@ -1,3 +1,5 @@
+import { captureFixedWorkshops, supportedEmpire } from "./fixedWorkshops.mjs";
+import { stable, planningDataSignature } from "../housing/requirements.mjs";
 import {
   normalizeReservations,
   housingDataSignature,
@@ -30,20 +32,45 @@ export function configurationSignature(user) {
   );
   // Empty new settings preserve signatures of previously applied gathering plans.
   if (reservations.length) fields.push(reservations);
+  if (user.palaceEnable) fields.push({ palaceEnable: true });
+  const storage = Object.entries(user.workshopStorage || {});
+  if (storage.length) fields.push(stable(user.workshopStorage));
+  if ((user.userWorkers || []).some((w) => w.job?.kind === "workshop"))
+    fields.push(stable([user.wasmRouting, user.linkOrder, user.wasm]));
   return JSON.stringify(fields);
 }
 
 export function valuationSignature(user, market) {
-  return JSON.stringify([
+  const fields = [
     market.prices,
     user.regionResources,
     user.allowFloating,
     user.useFloatingResources,
     user.regionResources2,
-  ]);
+  ];
+  if ((user.userWorkers || []).some((w) => w.job?.kind === "workshop"))
+    fields.push(
+      stable(
+        Object.fromEntries(
+          user.userWorkers
+            .filter((w) => w.job?.kind === "workshop")
+            .map((w) => {
+              const c =
+                user.userWorkshops?.[w.job.hk] ||
+                user.defaultUserWorkshop ||
+                {};
+              return [
+                w.job.hk,
+                [c.industry, c.manualWorkload, c.manualCycleIncome],
+              ];
+            })
+        )
+      )
+    );
+  return JSON.stringify(fields);
 }
 
-export function createSnapshot(game, user, market, options) {
+export function createSnapshot(game, user, market, options, routing) {
   if (!game.ready || !game.plannerReady)
     throw new Error("游戏与住房数据尚未加载完成");
   const budget = Number(options.budget),
@@ -84,8 +111,9 @@ export function createSnapshot(game, user, market, options) {
       },
     ])
   );
+  const fixed = captureFixedWorkshops(game, user, routing);
   const snapshot = plain({
-    schemaVersion: 1,
+    schemaVersion: 2,
     createdAt: new Date().toISOString(),
     nodes: game.nodes,
     links: game.links,
@@ -97,6 +125,15 @@ export function createSnapshot(game, user, market, options) {
     houses: game.houseInfo,
     housingDataSignature: housingDataSignature(game.houseInfo),
     houseReservations: normalizeReservations(game.houseInfo, user),
+    dataSignature: planningDataSignature(game),
+    retainedWorkers: fixed.workers,
+    previousGatheringCount: user.userWorkers.length - fixed.workers.length,
+    fixedWorkshopRoutes: fixed.routes,
+    fixedActivationRoutes: fixed.activationRoutes,
+    fixedNodeIds: fixed.nodes,
+    fixedWorkerCounts: fixed.counts,
+    fixedStorage: fixed.storage,
+    supported: supportedEmpire(user),
     workerStatic: game.workerStatic,
     skillData: game.skillData,
     townTemplates,
@@ -113,6 +150,7 @@ export function createSnapshot(game, user, market, options) {
     budget,
     timeLimit,
     maxPlantzones,
+    includeGrind: Boolean(options.includeGrind),
     townIds,
     storageTown,
     candidatesPerPlantzone: Math.min(6, townIds.length),
@@ -123,13 +161,5 @@ export function createSnapshot(game, user, market, options) {
 }
 
 export function canReplaceGatheringWorkers(user) {
-  return (
-    user.userWorkers.every(
-      (worker) =>
-        !worker.job ||
-        (typeof worker.job === "object" && worker.job.kind === "plantzone")
-    ) &&
-    !user.farmingEnable &&
-    !Object.keys(user.tradeDestinations || {}).length
-  );
+  return supportedEmpire(user);
 }

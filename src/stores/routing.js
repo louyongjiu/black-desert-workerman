@@ -1,3 +1,4 @@
+import {connectionShares} from '../optimizer/shares.mjs'
 import {defineStore} from "pinia";
 import {useGameStore} from './game.js'
 import {useUserStore} from './user.js'
@@ -130,6 +131,17 @@ export const useRoutingStore = defineStore({
           }
         }
       }
+
+      // The WASM API requires unique first terminals. Repeated identical jobs
+      // share a pair; different destinations from one first terminal use the
+      // existing router, which can represent all retained workshop routes.
+      const pairsByFirst=new Map(),uniquePairs=[]
+      for(const pair of terminalPairs) {
+        if(pairsByFirst.has(pair[0])) {
+          if(pairsByFirst.get(pair[0])!==pair[1])return state.routingOld
+        }else {pairsByFirst.set(pair[0],pair[1]);uniquePairs.push(pair)}
+      }
+      terminalPairs.splice(0,terminalPairs.length,...uniquePairs)
 
       let activatedNodes = []
       if (terminalPairs.length > 0) {
@@ -443,29 +455,19 @@ export const useRoutingStore = defineStore({
       return cashFlows
     },
 
-    pzjobsSharedConnectionCP(state) {
-      const ret = {}
-      const gameStore = useGameStore()
-      for (const [pzk, job] of Object.entries(state.pzJobs)) {
-        ret[pzk] = {
-          value: 0,
-          tooltip: ""
-        }
-        if (job.usedPath) {
-          job.usedPath.forEach(function(nk) {
-            if (state.routing.autotakenGrindNodes.has(nk)) {
-              return ret // zero-cost
-            }
-            const nodeCostShare = job.profit.priceDaily / state.currentNodesCashflow[nk]
-            const nodeCostShared = gameStore.nodes[nk].CP * nodeCostShare
-            ret[pzk].value += nodeCostShared
-            ret[pzk].tooltip += `${formatFixed(nodeCostShared, 3)} ${gameStore.nodeName(nk)}\n`
-          })
-        }
-      }
-      //console.log('pzjobsSharedConnectionCP', ret)
-      return ret
+    jobConnectionShares(state) {return connectionShares(state.routing,useGameStore().nodes)},
+    wsJobsSharedConnectionCP(state) {
+      return new Map(state.wsJobs.map(job=>[job.worker,state.jobConnectionShares.get(job)]))
     },
+    pzjobsSharedConnectionCP(state) {
+      const game=useGameStore(),result={}
+      for(const [pzk,job] of Object.entries(state.pzJobs)) {
+        const share=state.jobConnectionShares.get(job) || {value:0,parts:[]}
+        result[pzk]={value:share.value,tooltip:share.parts.map(p=>formatFixed(p.value,3)+' '+game.nodeName(p.id)).join('\n')}
+      }
+      return result
+    },
+
   }
 
 });

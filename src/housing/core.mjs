@@ -27,6 +27,72 @@ export function capacity(house, usage) {
   return value;
 }
 
+export function pruneHousing(
+  houses,
+  townKey,
+  reservations,
+  plan,
+  wantLodging,
+  wantStorage
+) {
+  const rows = plan.indices
+    .map((key, i) => ({
+      key,
+      state: plan.states[i],
+      usage:
+        plan.usages?.[i] ??
+        (plan.states[i] === 1 ? 2 : plan.states[i] === 2 ? 1 : 0),
+    }))
+    .filter((r) => houses[r.key]);
+  let lodging = plan.lodging,
+    storage = plan.storage;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const candidates = [...rows].sort(
+      (a, b) => houses[b.key].CP - houses[a.key].CP
+    );
+    for (const r of candidates) {
+      if (
+        reservations[r.key] ||
+        rows.some((c) => houses[c.key].needHouseKey === r.key)
+      )
+        continue;
+      const l = r.state === 2 ? capacity(houses[r.key], 1) : 0,
+        s = r.state === 1 ? capacity(houses[r.key], 2) : 0;
+      if (
+        lodging - l < Math.max(0, wantLodging) ||
+        storage - s < Math.max(0, wantStorage)
+      )
+        continue;
+      rows.splice(rows.indexOf(r), 1);
+      lodging -= l;
+      storage -= s;
+      changed = true;
+    }
+  }
+  const result = {
+    ...plan,
+    indices: [Number(townKey), ...rows.map((r) => r.key)],
+    states: [0, ...rows.map((r) => r.state)],
+    usages: [null, ...rows.map((r) => r.usage)],
+    lodging,
+    storage,
+    cost: rows.reduce((n, r) => n + houses[r.key].CP, 0),
+  };
+  return {
+    ...result,
+    ...validateHousing(
+      houses,
+      townKey,
+      reservations,
+      result,
+      wantLodging,
+      wantStorage
+    ),
+  };
+}
+
 export function normalizeReservations(houses, user) {
   const result = {};
   for (const [key, value] of Object.entries(user.houseReservations || {})) {
@@ -87,6 +153,15 @@ export function townReservations(houses, reservations, townKey) {
       ([key]) => Number(houses[key]?.affTown) === Number(townKey)
     )
   );
+}
+
+// The empire model and local preview must select the same method per town.
+export function townHousingPolicy(houses, reservations, townKey) {
+  const locks = townReservations(houses, reservations, townKey);
+  return {
+    reservations: locks,
+    housingMethod: Object.keys(locks).length ? "solve" : "lookup",
+  };
 }
 
 export function addHousingVariables(

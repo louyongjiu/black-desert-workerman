@@ -11,6 +11,7 @@ export function buildModel(snapshot, prepared) {
       .filter((n) => n.kind > 0 && n.kind < 3 && n.CP === 0)
       .map((n) => n.key)
   );
+  const fixedNodes = new Set(snapshot.fixedNodeIds || []);
   const locked = [...new Set(snapshot.lockedNodeIds.map(Number))];
   if (
     (snapshot.activateAncado || snapshot.storageTown === 1343) &&
@@ -25,6 +26,7 @@ export function buildModel(snapshot, prepared) {
     ...snapshot.townIds,
     ...bases,
     ...locked,
+    ...fixedNodes,
     1343,
   ]);
   const graph = trimGraph(snapshot.nodes, snapshot.links, terminals);
@@ -33,7 +35,12 @@ export function buildModel(snapshot, prepared) {
   for (const node of Object.values(graph.nodes))
     nodeVars.set(
       node.key,
-      builder.variable(0, 1, true, locked.includes(node.key) ? 1 : 0)
+      builder.variable(
+        0,
+        1,
+        true,
+        locked.includes(node.key) || fixedNodes.has(node.key) ? 1 : 0
+      )
     );
   const budget = [...nodeVars].map(([key, index]) => [
     index,
@@ -92,6 +99,18 @@ export function buildModel(snapshot, prepared) {
   const housingVars = [],
     housingModels = [];
   for (const town of prepared.infrastructure) {
+    const stockTerms = town.warehouse
+      ? [...items]
+          .filter(([id]) => !(id in (town.fixedItems || {})))
+          .map(([, i]) => [i, 1])
+          .concat([[anyProduction, town.fixedSpare ? 0 : 1]])
+      : [];
+    if (town.storageLimit)
+      builder.row(
+        stockTerms,
+        -Infinity,
+        town.storageLimit - (town.fixedStorageCount || 0)
+      );
     if (town.dynamicHousing) {
       const housing = addHousingVariables(
         builder,
@@ -110,11 +129,7 @@ export function buildModel(snapshot, prepared) {
       );
       builder.row(
         [
-          ...(town.warehouse
-            ? [...items.values()]
-                .map((i) => [i, 1])
-                .concat([[anyProduction, 1]])
-            : []),
+          ...stockTerms,
           ...housingTerms(housing, "storage").map(([i, v]) => [i, -v]),
         ],
         -Infinity,
@@ -145,12 +160,7 @@ export function buildModel(snapshot, prepared) {
     );
     if (town.warehouse)
       builder.row(
-        [...items.values()]
-          .map((index) => [index, 1])
-          .concat(
-            [[anyProduction, 1]],
-            choices.map((c) => [c.index, -c.storage])
-          ),
+        stockTerms.concat(choices.map((c) => [c.index, -c.storage])),
         -Infinity,
         0
       );
@@ -246,5 +256,7 @@ export function buildModel(snapshot, prepared) {
     locked,
     prepared,
     snapshot,
+    budgetTerms: budget,
+    fixedCost,
   };
 }

@@ -9,14 +9,60 @@ export function solveSnapshot(highs, snapshot, emit = () => {}) {
   const prepared = prepareValues(snapshot, (update) =>
     emit({ type: "progress", ...update })
   );
-  if (!prepared.candidates.length)
-    throw new Error("没有可优化的采集点，请检查城镇、预算和物品价格");
   emit({
     type: "progress",
     stage: "model",
     candidates: prepared.consideredPlantzones,
   });
   const problem = buildModel(snapshot, prepared);
+  let baselineCP = null;
+  if (snapshot.schemaVersion === 2) {
+    emit({ type: "progress", stage: "baseline" });
+    const basePrepared = {
+      ...prepared,
+      candidates: [],
+      plantzoneIds: [],
+      itemKeys: [],
+    };
+    const baseProblem = buildModel(
+      { ...snapshot, budget: Infinity },
+      basePrepared
+    );
+    const data = {
+      ...baseProblem.data,
+      colCost: new Float64Array(baseProblem.data.numCols),
+      sense: 1,
+    };
+    for (const [i, cost] of baseProblem.budgetTerms) data.colCost[i] += cost;
+    const baseModel = highs.createModel(data);
+    try {
+      baseModel.options.set({
+        output_flag: false,
+        time_limit: Math.max(0.1, Math.min(5, snapshot.timeLimit / 4)),
+        mip_rel_gap: 0,
+      });
+      baseModel.run();
+      if (baseModel.getModelStatus() === highs.constants.modelStatus.optimal) {
+        baselineCP = decodeResult(
+          baseProblem,
+          baseModel.getSolution().colValue
+        ).totalCP;
+        if (baselineCP > snapshot.budget)
+          throw new Error(
+            `Retained requirements need ${baselineCP} CP; the budget is ${snapshot.budget} CP`
+          );
+      } else if (
+        baseModel.getModelStatus() === highs.constants.modelStatus.infeasible
+      )
+        throw new Error(
+          "Retained workers and storage cannot fit the available housing"
+        );
+    } finally {
+      baseModel.dispose();
+    }
+  }
+  if (!prepared.candidates.length)
+    throw new Error("没有可优化的采集点，请检查城镇、预算和物品价格");
   const model = highs.createModel(problem.data);
   let best = null,
     lastProgress = 0;
@@ -38,6 +84,7 @@ export function solveSnapshot(highs, snapshot, emit = () => {}) {
     if (seed) {
       best = {
         ...decodeResult(problem, seed),
+        fixedBaselineCP: baselineCP,
         status: "feasible",
         gap: null,
         elapsed: (performance.now() - started) / 1000,
@@ -70,7 +117,10 @@ export function solveSnapshot(highs, snapshot, emit = () => {}) {
       },
       [highs.constants.callbackType.mipImprovingSolution](event) {
         // HiGHS returns a detached incumbent vector. Validate before exposing it.
-        const result = decodeResult(problem, event.data.mip_solution);
+        const result = {
+          ...decodeResult(problem, event.data.mip_solution),
+          fixedBaselineCP: baselineCP,
+        };
         if (!best || result.profitSilverPerDay >= best.profitSilverPerDay) {
           best = { ...result, ...progress(event.data), status: "feasible" };
           emit({ type: "solution", result: best });
@@ -82,7 +132,10 @@ export function solveSnapshot(highs, snapshot, emit = () => {}) {
       status === highs.constants.modelStatus.optimal ||
       model.info.get("primal_solution_status") === 2
     ) {
-      const final = decodeResult(problem, model.getSolution().colValue);
+      const final = {
+        ...decodeResult(problem, model.getSolution().colValue),
+        fixedBaselineCP: baselineCP,
+      };
       if (!best || final.profitSilverPerDay >= best.profitSilverPerDay)
         best = final;
     }

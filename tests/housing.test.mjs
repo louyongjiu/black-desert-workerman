@@ -4,11 +4,14 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import loadHighs from "highs";
 import { solveHousing } from "../src/housing/solve.mjs";
+import { validAppliedPlan, housingFromPlan } from "../src/housing/empire.mjs";
+import { STORAGE_LIMIT } from "../src/housing/requirements.mjs";
 import {
   capacity,
   normalizeReservations,
   townHouses,
   townReservations,
+  townHousingPolicy,
   validateHousing,
 } from "../src/housing/core.mjs";
 
@@ -269,7 +272,8 @@ function storeHarness() {
     housingUndo: null,
     userWorkers: [],
     $patch(value) {
-      Object.assign(this, value);
+      if (typeof value === "function") value(this);
+      else Object.assign(this, value);
     },
   };
   const workers = [],
@@ -300,7 +304,11 @@ function storeHarness() {
     normalizeReservations,
     townHouses,
     townReservations,
+    townHousingPolicy,
     validateHousing,
+    validAppliedPlan,
+    housingFromPlan,
+    STORAGE_LIMIT,
     Worker,
     URL,
     queueMicrotask: (cb) => microtasks.push(cb),
@@ -312,8 +320,47 @@ function storeHarness() {
   const flush = () => {
     while (microtasks.length) microtasks.shift()();
   };
-  return { store, user, workers, flush };
+  return { store, user, game, workers, flush };
 }
+test("housing method stays local to the town and follows active workshop occupancy", () => {
+  const { store, user, game, workers, flush } = storeHarness();
+  game.houseInfo = {
+    ...houses,
+    201: { key: 201, affTown: 6, CP: 1, needHouseKey: 0, CraftList: { 0: 1 } },
+  };
+  user.houseReservations = { 201: { usage: 0 } };
+  user.userWorkshops = { 102: {} };
+  user.housingPlans[5] = { cost: 99 };
+  const ordinary = store.lookup(5, 1, 3);
+  flush();
+  assert.equal(ordinary.housingMethod, "lookup");
+  assert.equal(ordinary.pending, undefined);
+  assert.equal(workers.length, 0);
+
+  user.userWorkers = [{ job: { kind: "workshop", hk: 102 } }];
+  const occupied = store.lookup(5, 1, 3);
+  flush();
+  assert.equal(occupied.housingMethod, "solve");
+  assert.equal(occupied.pending, true);
+  assert.equal(workers.length, 1);
+  const request = workers[0].job;
+  assert.equal(request.reservations[102].automatic, true);
+  assert.equal(request.reservations[201], undefined);
+  const result = solveHousing(highs, request);
+  assert.equal(result.cost, 4); // Factory 102, prerequisite/storage 101, lodging 104.
+  workers[0].onmessage({
+    data: { key: request.key, type: "complete", result },
+  });
+  assert.equal(store.lookup(5, 1, 3).cost, 4);
+
+  user.userWorkers = [];
+  assert.equal(store.lookup(5, 1, 3).housingMethod, "lookup");
+  store.reserve(104, "1");
+  assert.equal(store.lookup(5, 1, 3).housingMethod, "solve");
+  store.reserve(104, "");
+  assert.equal(store.lookup(5, 1, 3).housingMethod, "lookup");
+});
+
 test("housing queue coalesces requests, ignores obsolete results, saves and undoes, stops and retries", () => {
   const { store, user, workers, flush } = storeHarness();
   const pending = store.lookup(5, 1, 3, 2);
@@ -374,4 +421,75 @@ test("housing queue coalesces requests, ignores obsolete results, saves and undo
     store.lookup(5, 0, 0).sourceKey
   );
   assert.equal(store.lookup("5", 1, 3).cost, store.lookup(5, 1, 3).cost);
+});
+
+test("town reset preserves workshops and other towns, cancels obsolete work, and restores complete inputs on undo", () => {
+  const { store, user, game, workers, flush } = storeHarness();
+  game.houseInfo = {
+    ...houses,
+    201: { key: 201, affTown: 6, CP: 1, needHouseKey: 0, CraftList: { 0: 1 } },
+  };
+  user.houseReservations = { 104: { usage: 1 }, 201: { usage: 0 } };
+  user.housingPlans = {
+    5: { cost: 6, indices: [5, 101, 102, 103, 104] },
+    6: { cost: 1, indices: [6, 201] },
+  };
+  const employees = [{ job: { kind: "workshop", hk: 102 } }];
+  user.userWorkers = employees;
+  const storage = { 5: { coverage: "personal", confirmed: true } };
+  user.workshopStorage = storage;
+  user.storagePersonal = { 5: 11 };
+  user.storageP2W = { 5: 8 };
+  const original = JSON.parse(
+    JSON.stringify({
+      reservations: user.houseReservations,
+      plans: user.housingPlans,
+    })
+  );
+  const current = store.lookup(5, 3, 8);
+  flush();
+  const oldWorker = workers[0];
+  const other = store.lookup(6, 0, 0);
+  flush();
+  store.resetTown(5);
+  assert.equal(oldWorker.terminated, true);
+  assert.equal(workers.length, 2);
+  assert.equal(workers[1].job.townKey, 6);
+  assert.equal(user.houseReservations[104], undefined);
+  assert.equal(user.houseReservations[201].usage, 0);
+  assert.equal(user.housingPlans[5], undefined);
+  assert.equal(user.housingPlans[6].cost, 1);
+  assert.equal(user.userWorkers, employees);
+  assert.equal(user.workshopStorage, storage);
+  assert.equal(user.storagePersonal[5], 11);
+  assert.equal(user.storageP2W[5], 8);
+  assert.equal(
+    normalizeReservations(game.houseInfo, user)[102].automatic,
+    true
+  );
+  oldWorker.onmessage({
+    data: {
+      key: current.sourceKey,
+      type: "complete",
+      result: { success: true, cost: -1 },
+    },
+  });
+  assert.equal(store.results[current.sourceKey], undefined);
+  workers[1].onmessage({
+    data: {
+      key: other.sourceKey,
+      type: "complete",
+      result: solveHousing(highs, workers[1].job),
+    },
+  });
+  assert.equal(store.lookup(6, 0, 0).cost, 1);
+  store.undo();
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(user.houseReservations)),
+    original.reservations
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(user.housingPlans)),
+    original.plans
+  );
 });

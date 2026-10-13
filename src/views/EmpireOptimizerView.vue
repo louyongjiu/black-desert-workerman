@@ -1,9 +1,18 @@
 <script setup>
 import { computed, onBeforeUnmount, ref } from "vue";
+import { mergeEmpire } from "../optimizer/application.mjs";
+import WorkshopStorage from "../components/WorkshopStorage.vue";
 import { useGameStore } from "../stores/game";
 import { useUserStore } from "../stores/user";
 import { useMarketStore } from "../stores/market";
 import { useOptimizerStore } from "../stores/optimizer";
+import { useRoutingStore } from "../stores/routing";
+import { captureFixedWorkshops } from "../optimizer/fixedWorkshops.mjs";
+import {
+  employeeCounts,
+  storageRequirements,
+} from "../housing/requirements.mjs";
+import { validAppliedPlan, validPreview } from "../housing/empire.mjs";
 import { useUiI18n } from "../i18n/vue";
 
 const { locale } = useUiI18n();
@@ -17,12 +26,49 @@ const game = useGameStore(),
   user = useUserStore(),
   market = useMarketStore(),
   optimizer = useOptimizerStore();
-const budget = ref(300),
-  timeLimit = ref(30),
-  maxPlantzones = ref(370),
-  storageTown = ref(601);
-const townIds = ref([...game.townsWithLodging]),
-  includeGrind = ref(true),
+const routing = useRoutingStore();
+const retained = computed(() =>
+  user.userWorkers.filter((w) => !w.job || w.job.kind === "workshop")
+);
+const fixedRequirements = computed(() => ({
+  workers: employeeCounts(game, retained.value),
+  storage: storageRequirements(game, user, retained.value, false),
+}));
+const fixedTowns = computed(() =>
+  [
+    ...new Set([
+      ...Object.keys(fixedRequirements.value.workers),
+      ...Object.keys(fixedRequirements.value.storage),
+    ]),
+  ]
+    .map(Number)
+    .filter(
+      (tk) =>
+        fixedRequirements.value.workers[tk] ||
+        fixedRequirements.value.storage[tk]?.total ||
+        fixedRequirements.value.storage[tk]?.issues.length
+    )
+);
+const fixedConnections = computed(() => {
+  if (!game.plannerReady || (user.wasmRouting && !game.wasmRouter)) return null;
+  try {
+    const fixed = captureFixedWorkshops(game, user, routing.routing);
+    return fixed.nodes.reduce((sum, id) => sum + game.nodes[id].CP, 0);
+  } catch {
+    return null;
+  }
+});
+const draft =
+  optimizer.draftOptions ||
+  optimizer.lastOptions ||
+  user.optimizerPlan?.optimizationOptions ||
+  {};
+const budget = ref(draft.budget ?? 300),
+  timeLimit = ref(draft.timeLimit ?? 30),
+  maxPlantzones = ref(draft.maxPlantzones ?? 370),
+  storageTown = ref(draft.storageTown ?? 601);
+const townIds = ref([...(draft.townIds || game.townsWithLodging)]),
+  includeGrind = ref(draft.includeGrind ?? true),
   consent = ref(false),
   actionError = ref("");
 const now = ref(Date.now());
@@ -30,6 +76,7 @@ const timer = setInterval(() => {
   now.value = Date.now();
 }, 500);
 onBeforeUnmount(() => {
+  optimizer.draftOptions = options();
   clearInterval(timer);
   optimizer.stop();
 });
@@ -43,6 +90,7 @@ const stages = {
   loading: "加载优化器",
   values: "计算采集收益",
   model: "准备连接与住房约束",
+  baseline: "Checking retained housing and routes",
   solve: "寻找更好的方案",
   complete: "计算完成",
   stopped: "已停止",
@@ -52,13 +100,11 @@ const applied = computed(
   () =>
     user.optimizerPlan &&
     result.value?.createdAt === user.optimizerPlan.createdAt &&
-    user.optimizerPlan.appliedSignature === configurationSignature(user)
+    validAppliedPlan(user, game)
 );
 const stale = computed(
   () =>
-    result.value &&
-    !applied.value &&
-    result.value.sourceSignature !== configurationSignature(user)
+    result.value && !applied.value && !validPreview(result.value, user, game)
 );
 const valueStale = computed(
   () =>
@@ -68,7 +114,7 @@ const valueStale = computed(
 const canApply = computed(
   () =>
     result.value &&
-    result.value.workers.length > 0 &&
+    result.value.supported !== false &&
     !optimizer.running &&
     !stale.value &&
     !valueStale.value &&
@@ -119,6 +165,8 @@ const mapPreview = computed(() => {
   for (const path of [
     ...result.value.assignments.map((a) => a.path),
     ...result.value.grindRoutes.map((a) => a.path),
+    ...(result.value.fixedWorkshopRoutes || []).map((r) => r.path),
+    ...(result.value.fixedActivationRoutes || []).map((r) => r.path),
   ]) {
     for (let i = 1; i < path.length; i++)
       edges.set([path[i - 1], path[i]].sort((a, b) => a - b).join(":"), [
@@ -132,21 +180,25 @@ const mapPreview = computed(() => {
     towns: new Set(result.value.assignments.map((a) => a.town)),
   };
 });
-function start() {
-  consent.value = false;
-  actionError.value = "";
-  optimizer.start({
+function options() {
+  return {
     budget: budget.value,
     timeLimit: timeLimit.value,
     maxPlantzones: maxPlantzones.value,
-    townIds: townIds.value,
+    townIds: [...townIds.value],
     storageTown: storageTown.value,
     includeGrind: includeGrind.value,
-  });
+  };
+}
+function start() {
+  consent.value = false;
+  actionError.value = "";
+  optimizer.draftOptions = options();
+  optimizer.start(options());
 }
 function apply() {
   try {
-    optimizer.apply();
+    optimizer.apply(consent.value);
     consent.value = false;
     actionError.value = "";
   } catch (error) {
@@ -172,30 +224,32 @@ function download(value, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function exportPlan() {
-  const out = JSON.parse(JSON.stringify(user.$state));
-  delete out.optimizerUndo;
-  delete out.housingUndo;
-  out.userWorkers = result.value.workers;
-  out.farmingEnable = false;
-  out.tradeDestinations = {};
-  out.tradeRouteAlwaysOn = {};
-  out.tradeInfraCp = {};
-  out.tradeRouteCp = {};
-  out.grindTakenList = result.value.lockedNodeIds;
-  out.activateAncado =
-    result.value.assignments.some((a) => a.town === 1343) ||
-    result.value.storageTown === 1343 ||
-    out.activateAncado;
-  out.optimizerPlan = JSON.parse(JSON.stringify(result.value));
-  // Fixed workshop uses must survive the gathering-only export.
-  out.houseReservations = Object.fromEntries(
-    Object.entries(result.value.houseReservations || {}).map(([key, lock]) => [
-      key,
-      { usage: lock.usage },
-    ])
-  );
-  out.optimizerPlan.appliedSignature = configurationSignature(out);
-  download(out, "optimized_empire.json");
+  if (!canReplaceGatheringWorkers(user) || result.value.supported === false) {
+    download(result.value, "empire_preview.json");
+    return;
+  }
+  try {
+    const out = JSON.parse(JSON.stringify(user.$state));
+    delete out.optimizerUndo;
+    delete out.housingUndo;
+    const exporting = applied.value ? user.optimizerPlan : result.value;
+    const merged = mergeEmpire(user, exporting, consent.value);
+    out.userWorkers = merged.workers;
+    out.grindTakenList = result.value.lockedNodeIds;
+    out.activateAncado =
+      out.activateAncado ||
+      result.value.assignments.some((a) => a.town === 1343) ||
+      result.value.storageTown === 1343 ||
+      result.value.fixedWorkshopRoutes?.some(
+        (r) => r.source === 1343 || r.target === 1343
+      );
+    out.optimizerPlan = JSON.parse(JSON.stringify(exporting));
+    out.optimizerPlan.fixedWorkerBindings = merged.bindings;
+    out.optimizerPlan.appliedSignature = configurationSignature(out);
+    download(out, "optimized_empire.json");
+  } catch (e) {
+    actionError.value = e.message;
+  }
 }
 </script>
 
@@ -225,11 +279,26 @@ function exportPlan() {
     <p class="notice">
       {{
         $t(
-          "建设方案使用 40 级平均属性工人和建议技能。收益采用当前价格与资源设置，尚不分配你已有的实际工人。"
+          "Workshop and idle workers are retained; gathering uses average level-40 workers"
         )
       }}
     </p>
     <section class="panel">
+      <div class="housing-settings">
+        <router-link to="/housecraft?mode=empire">{{
+          $t("Empire housing settings")
+        }}</router-link>
+        <router-link to="/housecraft?mode=trial">{{
+          $t("Free housing trial")
+        }}</router-link>
+        <p class="muted">
+          {{
+            $t(
+              "Set reserved house uses and workshop storage here before optimizing the empire."
+            )
+          }}
+        </p>
+      </div>
       <div class="controls">
         <label
           >{{ $t("贡献点预算")
@@ -294,10 +363,51 @@ function exportPlan() {
       <p v-if="user.workersWorkshopCount">
         {{
           $t(
-            "Workshop routes and material storage are not included automatically. This preview plans gathering workers."
+            "Retained workshop routes, beds and material/product storage are included. Workshop production stays unchanged."
           )
         }}
       </p>
+      <p>
+        {{
+          $t(
+            "Workshop workers and idle workers are retained. Only gathering workers are replaced."
+          )
+        }}
+      </p>
+      <p>
+        {{ $t("Retained workshops") }}:
+        {{ retained.filter((w) => w.job).length }} ·
+        {{ $t("Retained workers") }}: {{ retained.length }} ·
+        {{ $t("Idle workers retained") }}:
+        {{ retained.filter((w) => !w.job).length }} ·
+        {{ $t("Retained connection CP") }}: {{ display(fixedConnections) }}
+      </p>
+      <p v-if="!canReplaceGatheringWorkers(user)" class="notice">
+        {{
+          $t(
+            "This empire contains unsupported active tasks; export a preview instead"
+          )
+        }}
+      </p>
+      <div v-if="fixedTowns.length" class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{{ $t("town") }}</th>
+              <th>{{ $t("Retained workers") }}</th>
+              <th>{{ $t("Total storage demand") }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="tk in fixedTowns" :key="tk">
+              <td>{{ game.uloc.town[tk] || tk }}</td>
+              <td>{{ fixedRequirements.workers[tk] || 0 }}</td>
+              <td>{{ display(fixedRequirements.storage[tk]?.total ?? 0) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <WorkshopStorage />
       <fieldset :disabled="optimizer.running">
         <legend>{{ $t("允许招募工人的城镇") }}</legend>
         <div class="town-tools">
@@ -326,7 +436,12 @@ function exportPlan() {
       <div class="actions">
         <button
           class="primary"
-          :disabled="optimizer.running || !townIds.length || market.apiFetching"
+          :disabled="
+            optimizer.running ||
+            !townIds.length ||
+            market.apiFetching ||
+            (user.wasmRouting && !game.wasmRouter)
+          "
           @click="start"
         >
           {{ $t("开始优化") }}</button
@@ -409,7 +524,7 @@ function exportPlan() {
       <p v-if="!canReplaceGatheringWorkers(user)" class="notice">
         {{
           $t(
-            "现有帝国包含其他任务。首版可导出建设方案，直接应用暂仅支持采集与空闲工人。"
+            "This empire contains unsupported active tasks; export a preview instead"
           )
         }}
       </p>
@@ -420,22 +535,35 @@ function exportPlan() {
         {{ $t("保存方案的设置已变化，首页已恢复常规路由。") }}
       </p>
       <div class="actions">
-        <button :disabled="optimizer.running || stale" @click="exportPlan">
-          {{ $t("导出方案 · 可导入首页") }}</button
+        <button
+          :disabled="
+            optimizer.running ||
+            stale ||
+            (!applied &&
+              canReplaceGatheringWorkers(user) &&
+              (valueStale || (!result.workers.length && !consent)))
+          "
+          @click="exportPlan"
+        >
+          {{
+            canReplaceGatheringWorkers(user)
+              ? $t("导出方案 · 可导入首页")
+              : $t("Export preview only")
+          }}</button
         ><button
           v-if="!applied"
           class="primary"
           :disabled="!canApply || !consent"
           @click="apply"
         >
-          {{ $t("应用建议工人和连接") }}</button
+          {{ $t("Retain workshops and apply gathering plan") }}</button
         ><span v-else class="success">{{ $t("已保留求解路径") }}</span>
       </div>
       <label v-if="!applied && canApply" class="check"
         ><input v-model="consent" type="checkbox" />
         {{
           $t(
-            "我确认替换当前采集与空闲工人，并使用方案中的刷怪保留节点；应用后可撤销。"
+            "I confirm replacing gathering workers, retaining workshops and idle workers, and using the listed node changes. This can be undone."
           )
         }}</label
       >
@@ -489,6 +617,58 @@ function exportPlan() {
           </tbody>
         </table>
       </div>
+      <p>
+        {{ $t("Retained workers") }}:
+        {{ result.retainedWorkers?.length || 0 }} ·
+        {{ $t("Retained workshops") }}:
+        {{ result.fixedWorkshopRoutes?.length || 0 }}
+      </p>
+      <p>
+        {{ $t("Retained minimum CP") }}: {{ display(result.fixedBaselineCP) }} ·
+        {{ $t("Workshop daily income") }}:
+        {{
+          display(
+            result.fixedProfitSilverPerDay == null
+              ? null
+              : result.fixedProfitSilverPerDay / 1e6
+          )
+        }}
+      </p>
+      <p>
+        {{ $t("Old gathering workers replaced") }}:
+        {{ result.previousGatheringCount ?? "—" }} ·
+        {{ $t("New gathering workers") }}: {{ result.workers.length }} ·
+        {{ $t("Workshop connection CP reused by gathering") }}:
+        {{ display(result.reusedWorkshopNodeCP) }} ·
+        {{ $t("CP above the retained minimum") }}:
+        {{
+          display(
+            result.fixedBaselineCP == null
+              ? null
+              : result.totalCP - result.fixedBaselineCP
+          )
+        }}
+      </p>
+      <p>
+        {{ $t("Combined daily income") }}:
+        {{
+          display(
+            result.totalProfitSilverPerDay === null
+              ? null
+              : result.totalProfitSilverPerDay / 1e6
+          )
+        }}
+      </p>
+      <p v-if="!result.workers.length">
+        {{
+          $t(
+            "This plan removes all old gathering workers and retains only fixed workers. Explicit confirmation is required."
+          )
+        }}
+      </p>
+      <router-link to="/housecraft?mode=empire">{{
+        $t("View the housing used by this empire")
+      }}</router-link>
       <details>
         <summary>{{ $t("住房与求解详情") }}</summary>
         <p>
@@ -505,9 +685,15 @@ function exportPlan() {
             :key="town.town"
           >
             {{ nodeName(town.town) }}：{{ town.workerCount }} {{ $t("名工人，")
-            }}{{ town.cost }} {{ $t("CP")
+            }}{{ town.cost }} {{ $t("CP") }} ·
+            {{
+              $t(
+                town.dynamicHousing
+                  ? "Housing calculated with reserved uses"
+                  : "Precomputed housing plan"
+              )
             }}<span v-if="town.storageCount"
-              >，{{ town.storageCount }} {{ $t("个产物仓储槽位") }}</span
+              >，{{ town.storageCount }} {{ $t("Total storage demand") }}</span
             >
           </li>
         </ul>
@@ -567,6 +753,20 @@ h2 {
   border-radius: 8px;
   padding: 1.2rem;
   margin: 1rem 0;
+}
+.housing-settings {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+.housing-settings a {
+  font-weight: 600;
+  display: inline-block;
+  margin-right: 1.2rem;
+  margin-bottom: 0.4rem;
+}
+.housing-settings p {
+  margin: 0.4rem 0 0;
 }
 .notice {
   background: var(--color-background-soft);

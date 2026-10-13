@@ -1,11 +1,16 @@
 import { configurationSignature } from "./snapshot.mjs";
 import { housingDataSignature } from "../housing/core.mjs";
+import { planningDataSignature } from "../housing/requirements.mjs";
+import { restoredWorkers } from "./application.mjs";
+import { validateFixedPath } from "./fixedWorkshops.mjs";
 
 export function appliedRouting(user, game) {
   const plan = user.optimizerPlan;
   if (
     !plan ||
     plan.appliedSignature !== configurationSignature(user) ||
+    (plan.dataSignature &&
+      plan.dataSignature !== planningDataSignature(game)) ||
     (plan.housingDataSignature &&
       plan.housingDataSignature !== housingDataSignature(game.houseInfo)) ||
     !game.ready
@@ -42,6 +47,34 @@ export function appliedRouting(user, game) {
     }
   };
   try {
+    const retained = restoredWorkers(plan, user);
+    for (const route of plan.fixedActivationRoutes || [])
+      addPath(route.path, "worker");
+    for (const route of plan.fixedWorkshopRoutes || []) {
+      const worker = retained[route.workerIndex];
+      if (!worker || Number(worker.job?.hk) !== route.hk) return null;
+      validateFixedPath(game, route.path, route.source, route.target);
+      addPath(route.path, "worker");
+      const config = user.getUserWorkshop(route.hk);
+      const profit = game.profitWorkshopWorker(route.hk, config, worker);
+      const job = {
+        hk: route.hk,
+        worker,
+        profit,
+        usedPath: route.path,
+        usedPathCost: route.path.reduce(
+          (sum, id) => sum + game.nodes[id].CP,
+          0
+        ),
+        thriftyPercent: 0,
+      };
+      if (game.craftInputs && worker.job.recipe in game.craftInputs)
+        for (const sk of worker.skills || [])
+          for (const key of ["thriftyA", "thriftyB", "thriftyC"])
+            job.thriftyPercent += game.skillData[sk]?.[key] || 0;
+      ret.pzWsJobs.ws.push(job);
+      ret.pzWsJobs.map.push(job);
+    }
     for (const entry of plan.grindRoutes)
       addPath(entry.path, entry.infrastructure ? "worker" : "grind");
     for (const entry of plan.assignments) {

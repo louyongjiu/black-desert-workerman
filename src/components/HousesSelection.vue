@@ -4,6 +4,7 @@ import {useGameStore} from '../stores/game'
 import {formatFixed} from '../util.js'
 import WorkerJobDescription from '../components/WorkerJobDescription.vue'
 import ItemIcon from '../components/lo/ItemIcon.vue'
+import WorkshopStorage from './WorkshopStorage.vue'
 import HouseReservations from './HouseReservations.vue'
 
 export default {
@@ -33,6 +34,7 @@ export default {
     WorkerJobDescription,
     ItemIcon,
     HouseReservations,
+    WorkshopStorage,
   },
 
   data: () => ({
@@ -205,7 +207,7 @@ export default {
 
     <div class="section" v-if="tk in gameStore.lodgingPerTown">
       <h3>{{ $t('🛏️ lodging') }}</h3>
-      {{ userStore.townWorkingWorkers(tk).length }} {{ $t('used by workers')
+      {{ userStore.townWorkers(tk).length }} {{ $t('used by workers')
       }}<br />
       {{ $t('- 1 initial') }}<br />
       -
@@ -351,6 +353,7 @@ export default {
     <p v-if="bestLookup?.pending">{{ $t('Calculating housing') }}</p>
     <p v-else-if="bestLookup?.error" role="alert">{{ $t(bestLookup.error) }}</p>
     <HouseReservations :town-key="Number(tk)" />
+    <WorkshopStorage :town-key="Number(tk)" />
   </template>
 </template>
 

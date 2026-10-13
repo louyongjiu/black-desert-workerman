@@ -3,7 +3,10 @@ import { computed, ref } from "vue";
 import { useGameStore } from "../stores/game";
 import { useUserStore } from "../stores/user";
 import { useHousingStore } from "../stores/housing";
-const props = defineProps({ townKey: { type: Number, required: true } });
+const props = defineProps({
+  townKey: { type: Number, required: true },
+  showActions: { type: Boolean, default: true },
+});
 const game = useGameStore(),
   user = useUserStore(),
   housing = useHousingStore(),
@@ -95,11 +98,11 @@ function reserve(key, event) {
         </tbody>
       </table>
     </div>
-    <button v-if="user.housingUndo" @click="housing.undo()">
+    <button v-if="showActions && user.housingUndo" @click="housing.undo()">
       {{ $t("Undo housing change") }}
     </button>
     <button
-      v-if="Object.keys(user.houseReservations).length"
+      v-if="showActions && Object.keys(user.houseReservations).length"
       @click="housing.clearReservations()"
     >
       {{ $t("Clear all manual house reservations") }}

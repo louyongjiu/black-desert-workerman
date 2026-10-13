@@ -120,7 +120,7 @@ export default {
         &nbsp;
 
         <span>
-          {{ userStore.townWorkingWorkers(tk).length }}
+          {{ userStore.townWorkers(tk).length }}
           🛏️
           <span>
             {{

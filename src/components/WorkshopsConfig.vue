@@ -1,4 +1,5 @@
 <script>
+import WorkshopStorage from './WorkshopStorage.vue'
 import {useUserStore} from '../stores/user'
 import {useGameStore} from '../stores/game'
 import {formatFixed} from '../util.js'
@@ -17,6 +18,7 @@ export default {
     return { gameStore, userStore }
   },
 
+  components: {WorkshopStorage},
   props: {
     show: {
       type: Boolean,
@@ -292,6 +294,7 @@ export default {
     "
     >ℹ</abbr
   >
+  <WorkshopStorage />
 </template>
 
 <style scoped>

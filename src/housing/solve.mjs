@@ -9,7 +9,7 @@ export function solveHousing(highs, request, emit = () => {}) {
     !Number.isFinite(wantLodging) ||
     !Number.isFinite(wantStorage) ||
     wantLodging > 1000 ||
-    wantStorage > 2000
+    wantStorage > (request.storageLimit ?? 192)
   )
     throw new Error("Housing demand is invalid");
   const builder = new SparseModel();
@@ -37,6 +37,7 @@ export function solveHousing(highs, request, emit = () => {}) {
       ),
       sourceKey: request.key,
       townKey: Number(request.townKey),
+      housingMethod: "solve",
     };
   };
   try {
