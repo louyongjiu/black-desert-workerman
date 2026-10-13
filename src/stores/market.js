@@ -41,15 +41,22 @@ export const useMarketStore = defineStore({
         language: lang,
         region: userStore.selectedRegion,
       }))
-      const MARKETURL = `https://bdolytics.com/api/trpc/market.getMarket?input=${input}`
-      const response = await fetch(MARKETURL)
-      if (!response.ok) {
-        throw new Error(`BDOlytics market request failed: ${response.status}`)
+      // Vercel and Vite proxy this same-origin route to BDOlytics.
+      const MARKETURL = `/api/bdolytics/market?input=${input}`
+      let marketEntries = []
+      try {
+        const response = await fetch(MARKETURL)
+        if (!response.ok) {
+          throw new Error(`BDOlytics market request failed: ${response.status}`)
+        }
+        const bdolytics = await response.json()
+        if (!Array.isArray(bdolytics.result?.data)) {
+          throw new Error('BDOlytics market response has an unexpected format')
+        }
+        marketEntries = bdolytics.result.data
       }
-      const bdolytics = await response.json()
-      const marketEntries = bdolytics.result?.data
-      if (!Array.isArray(marketEntries)) {
-        throw new Error('BDOlytics market response has an unexpected format')
+      catch (error) {
+        console.warn('BDOlytics market failed; trying Arsha', error)
       }
 
       const gameStore = useGameStore()

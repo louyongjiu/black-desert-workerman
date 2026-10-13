@@ -12,6 +12,16 @@ export default defineConfig(({ mode }) => ({
   define: {
     __RESOURCE_BASE_URL__: JSON.stringify(loadEnv(mode, workspace, 'VITE_').VITE_ASSET_BASE_URL || '/workerman/'),
   },
+  // Vite preview inherits server.proxy. Production uses the Vercel rewrite.
+  server: {
+    proxy: {
+      '^/api/bdolytics/market(?:\\?|$)': {
+        target: 'https://bdolytics.com',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/api\/bdolytics\/market/, '/api/trpc/market.getMarket'),
+      },
+    },
+  },
   build: {
     //minify: false,
     emptyOutDir: false,
