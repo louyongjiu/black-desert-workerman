@@ -1,10 +1,25 @@
 import { captureFixedWorkshops, supportedEmpire } from "./fixedWorkshops.mjs";
 import { stable, planningDataSignature } from "../housing/requirements.mjs";
+import { optimizerResources, STATIC_SNAPSHOT_FIELDS } from "./transport.mjs";
 import {
   normalizeReservations,
   housingDataSignature,
 } from "../housing/core.mjs";
 const plain = (value) => JSON.parse(JSON.stringify(value));
+
+export function optimizationOptionsChanged(plan, options) {
+  if (!plan?.optimizationOptions || !options) return false;
+  const signature = (value) =>
+    JSON.stringify([
+      Number(value.budget),
+      Number(value.timeLimit),
+      Number(value.maxPlantzones),
+      Number(value.storageTown),
+      Boolean(value.includeGrind),
+      [...new Set((value.townIds || []).map(Number))].sort((a, b) => a - b),
+    ]);
+  return signature(plan.optimizationOptions) !== signature(options);
+}
 
 export function configurationSignature(user) {
   const numericMap = (value = {}) =>
@@ -70,7 +85,14 @@ export function valuationSignature(user, market) {
   return JSON.stringify(fields);
 }
 
-export function createSnapshot(game, user, market, options, routing) {
+export function createSnapshot(
+  game,
+  user,
+  market,
+  options,
+  routing,
+  transport = false
+) {
   if (!game.ready || !game.plannerReady)
     throw new Error("游戏与住房数据尚未加载完成");
   const budget = Number(options.budget),
@@ -112,7 +134,7 @@ export function createSnapshot(game, user, market, options, routing) {
     ])
   );
   const fixed = captureFixedWorkshops(game, user, routing);
-  const snapshot = plain({
+  const snapshot = {
     schemaVersion: 2,
     createdAt: new Date().toISOString(),
     nodes: game.nodes,
@@ -154,10 +176,23 @@ export function createSnapshot(game, user, market, options, routing) {
     townIds,
     storageTown,
     candidatesPerPlantzone: Math.min(6, townIds.length),
-  });
+  };
   snapshot.sourceSignature = configurationSignature(user);
   snapshot.valueSignature = valuationSignature(user, market);
-  return snapshot;
+  if (transport) {
+    const params = Object.fromEntries(
+      Object.entries(snapshot).filter(
+        ([key]) => !STATIC_SNAPSHOT_FIELDS.includes(key)
+      )
+    );
+    return {
+      transport: 1,
+      dataVersion: snapshot.dataSignature,
+      resources: optimizerResources(),
+      params: plain(params),
+    };
+  }
+  return plain(snapshot);
 }
 
 export function canReplaceGatheringWorkers(user) {

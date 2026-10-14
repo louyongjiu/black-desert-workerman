@@ -1,14 +1,15 @@
 <script>
-import {useGameStore} from '../stores/game'
-import {useUserStore} from '../stores/user'
-import {formatFixed, percentageToColor} from '../util.js'
-import WorkerJobDescription from '../components/WorkerJobDescription.vue'
+import { useGameStore } from "../stores/game";
+import { useUserStore } from "../stores/user";
+import { formatFixed, percentageToColor } from "../util.js";
+import { useUiActionsStore } from "../stores/uiActions";
+import WorkerJobDescription from "../components/WorkerJobDescription.vue";
 
 export default {
   setup() {
-    const gameStore = useGameStore()
-    const userStore = useUserStore()
-    return { gameStore, userStore }
+    const gameStore = useGameStore();
+    const userStore = useUserStore();
+    return { gameStore, userStore };
   },
 
   props: {
@@ -17,32 +18,35 @@ export default {
     unsendable: Boolean,
   },
 
-  emits: [
-    'panToPaPos',
-    'send',
-    'edit',
-  ],
+  emits: ["fire", "panToPaPos", "send", "edit"],
 
   components: {
     WorkerJobDescription,
   },
 
-  data: () => ({
-    
-  }),
+  data: () => ({}),
+  computed: {
+    displayStats() {
+      return this.userStore.workerStatsForDisplay(this.w);
+    },
+  },
 
   methods: {
     formatFixed,
     percentageToColor,
+    stopJob() {
+      useUiActionsStore().perform(["userWorkers"], () => {
+        this.w.job = null;
+      });
+    },
   },
-}
-
+};
 </script>
 
 <template>
   <tr>
     <td>
-      <button @click="$emit('fire')">{{ $t('fire') }}</button>
+      <button class="danger" @click="$emit('fire')">{{ $t("fire") }}</button>
     </td>
     <td>
       {{ userStore.workerLabel(w) }}
@@ -53,7 +57,7 @@ export default {
         this.userStore.prerelease_colorGoblins &&
         w.charkey == 7572 && {
           backgroundColor: percentageToColor(
-            this.userStore.workerStatsForDisplay(w).wspd,
+            displayStats.wspd,
             this.userStore.workersMinMaxStats.wspd.lo,
             this.userStore.workersMinMaxStats.wspd.hi,
             0.2
@@ -62,10 +66,10 @@ export default {
       "
     >
       <span v-if="this.userStore.displayWorkerStatsRank" class="fss">
-        {{ formatFixed(this.userStore.workerStatsForDisplay(w).wspd, 1) }}%
+        {{ formatFixed(displayStats.wspd, 1) }}%
       </span>
       <span v-else>
-        {{ formatFixed(this.userStore.workerStatsForDisplay(w).wspd, 2) }}
+        {{ formatFixed(displayStats.wspd, 2) }}
       </span>
     </td>
     <td
@@ -73,7 +77,7 @@ export default {
         this.userStore.prerelease_colorGoblins &&
         w.charkey == 7572 && {
           backgroundColor: percentageToColor(
-            this.userStore.workerStatsForDisplay(w).mspd,
+            displayStats.mspd,
             this.userStore.workersMinMaxStats.mspd.lo,
             this.userStore.workersMinMaxStats.mspd.hi,
             0.2
@@ -82,10 +86,10 @@ export default {
       "
     >
       <span v-if="this.userStore.displayWorkerStatsRank" class="fss">
-        {{ formatFixed(this.userStore.workerStatsForDisplay(w).mspd, 1) }}%
+        {{ formatFixed(displayStats.mspd, 1) }}%
       </span>
       <span v-else>
-        {{ formatFixed(this.userStore.workerStatsForDisplay(w).mspd, 2) }}
+        {{ formatFixed(displayStats.mspd, 2) }}
       </span>
     </td>
     <td
@@ -93,7 +97,7 @@ export default {
         this.userStore.prerelease_colorGoblins &&
         w.charkey == 7572 && {
           backgroundColor: percentageToColor(
-            this.userStore.workerStatsForDisplay(w).luck,
+            displayStats.luck,
             this.userStore.workersMinMaxStats.luck.lo,
             this.userStore.workersMinMaxStats.luck.hi,
             0.2
@@ -102,15 +106,15 @@ export default {
       "
     >
       <span v-if="this.userStore.displayWorkerStatsRank" class="fss">
-        {{ formatFixed(this.userStore.workerStatsForDisplay(w).luck, 1) }}%
+        {{ formatFixed(displayStats.luck, 1) }}%
       </span>
       <span v-else>
-        {{ formatFixed(this.userStore.workerStatsForDisplay(w).luck, 2) }}
+        {{ formatFixed(displayStats.luck, 2) }}
       </span>
     </td>
 
     <td class="center">
-      <button @click="$emit('edit')">{{ $t('edit') }}</button>
+      <button @click="$emit('edit')">{{ $t("edit") }}</button>
     </td>
 
     <td>
@@ -129,17 +133,17 @@ export default {
         @
         <template v-if="userStore.displayProfitPerCp">
           {{ formatFixed(userStore.workerIncomePerCp(w), 2) }}
-          {{ $t('M$/day/CP') }}
+          {{ $t("M$/day/CP") }}
         </template>
         <template v-else>
-          {{ formatFixed(userStore.workerIncome(w), 2) }} {{ $t('M$/day') }}
+          {{ formatFixed(userStore.workerIncome(w), 2) }} {{ $t("M$/day") }}
         </template>
       </template>
-      <template v-else> {{ $t('idle') }} </template>
+      <template v-else> {{ $t("idle") }} </template>
     </td>
 
     <td class="center">
-      <button v-if="w.job" @click="w.job = null">{{ $t('stop') }}</button>
+      <button v-if="w.job" @click="stopJob">{{ $t("stop") }}</button>
       <template v-else>
         <div v-if="unsendable">
           <button
@@ -150,16 +154,14 @@ export default {
             "
             disabled="true"
           >
-            {{ $t('send') }}
+            {{ $t("send") }}
           </button>
         </div>
-        <button v-else @click="$emit('send')">{{ $t('send') }}</button>
+        <button v-else @click="$emit('send')">{{ $t("send") }}</button>
       </template>
     </td>
   </tr>
 </template>
-
-
 
 <style scoped>
 .homeless {

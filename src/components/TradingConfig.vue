@@ -660,6 +660,7 @@ export default {
             <td>
               <PriceInput
                 v-model="userStore.customPrices[ik]"
+                :reset-key="userStore.customPrices"
                 :defaultValue="
                   marketStore.apiPrices[ik] || marketStore.prices[ik]
                 "

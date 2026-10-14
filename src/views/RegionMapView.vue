@@ -7,6 +7,7 @@ import { markRaw } from 'vue'
 import { mapLifecycle } from '../mapLifecycle.js'
 import { fetchJson } from '../dataLoading.mjs'
 import { resourceUrl } from '../resourceUrls.mjs'
+import { frameUpdates } from '../ui/frameUpdates.mjs'
 
 export default {
   mixins: [mapLifecycle],
@@ -50,7 +51,9 @@ export default {
   mounted() {
     this._regionData = new Map()
     this.deck = markRaw(this.initializeDeck())
+    this._scheduleRegionLayers = frameUpdates(() => this.deck?.setProps({ layers: this.currentRegionLayers() }))
   },
+  beforeUnmount() { this._scheduleRegionLayers?.cancel() },
 
   watch: {
     highlightedIcon(newVal) {
@@ -74,17 +77,19 @@ export default {
       return this._regionData.get(key)
     },
     currentRegionLayers() {
+      const changed = this._renderedRegion !== this.currentLayer
+      this._renderedRegion = this.currentLayer
       if (this.currentLayer === 'RG') {
-        this.rgLayer = markRaw(this.makeRgLayer())
+        this.rgLayer = markRaw(this.rgLayer && !changed ? this.rgLayer : this.rgLayer?.clone() || this.makeRgLayer())
         this.resourceLayer = markRaw(this.makeResourceLayer())
         return [this.tileLayer, this.rgLayer, this.resourceLayer]
       }
-      this.rLayer = markRaw(this.makeRLayer())
+      this.rLayer = markRaw(this.rLayer && !changed ? this.rLayer : this.rLayer?.clone() || this.makeRLayer())
       this.originLayer = markRaw(this.makeOriginLayer())
       return [this.tileLayer, this.rLayer, this.originLayer]
     },
     updateRegionLayers() {
-      this.deck?.setProps({ layers: this.currentRegionLayers() })
+      this._scheduleRegionLayers?.()
     },
     makeResourceLayer() {
       return new IconLayer({

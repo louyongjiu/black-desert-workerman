@@ -2,17 +2,22 @@
 import loadHighs from "highs";
 import wasmUrl from "highs/runtime?url";
 import { solveSnapshot } from "./solve.mjs";
+import { optimizerSession } from "./transport.mjs";
+
+const run = optimizerSession(
+  () => loadHighs({ locateFile: () => wasmUrl }),
+  solveSnapshot
+);
 
 self.onmessage = async (event) => {
+  const { runId, snapshot } = event.data;
+  const emit = (message) => self.postMessage({ ...message, runId });
   try {
-    self.postMessage({ type: "progress", stage: "loading" });
-    const highs = await loadHighs({ locateFile: () => wasmUrl });
-    const result = solveSnapshot(highs, event.data, (message) =>
-      self.postMessage(message)
-    );
-    self.postMessage({ type: "complete", result });
+    emit({ type: "progress", stage: "loading" });
+    const result = await run(snapshot, emit);
+    emit({ type: "complete", result });
   } catch (error) {
-    self.postMessage({
+    emit({
       type: "error",
       message: error.message || String(error),
     });

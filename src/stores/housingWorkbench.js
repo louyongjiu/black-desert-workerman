@@ -7,6 +7,7 @@ import { fingerprint } from "../housing/requirements.mjs";
 import { housingFromPlan } from "../housing/empire.mjs";
 import {
   copy,
+  activeEmpireDrafts,
   defaultTrial,
   draftUser,
   empireTownSettings,
@@ -22,6 +23,7 @@ export const useHousingWorkbenchStore = defineStore("housingWorkbench", {
     recordUndo: {},
     savedUndo: null,
     townKey: 5,
+    storageError: "",
   }),
   actions: {
     ensureEmpire(tk) {
@@ -50,7 +52,7 @@ export const useHousingWorkbenchStore = defineStore("housingWorkbench", {
       const game = useGameStore(),
         user = useUserStore();
       const proposed = draftUser(game, user, {
-        ...this.empire,
+        ...activeEmpireDrafts(this.empire),
         [tk]: { settings },
       });
       normalizeReservations(game.houseInfo, proposed);
@@ -180,13 +182,14 @@ export const useHousingWorkbenchStore = defineStore("housingWorkbench", {
     copyEmpire(tk) {
       const game = useGameStore(),
         user = useUserStore();
-      const source = housingFromPlan(
-        useHousingStore().empireSource?.plan,
-        tk,
-        game,
-        user
-      );
+      const plan = useHousingStore().empireSource?.plan;
+      const source = housingFromPlan(plan, tk, game, user);
       const inputs = defaultTrial(game, user, tk);
+      // Absence from a valid plan means zero planned demand, not old live demand.
+      if (plan && !source) {
+        inputs.workers = 0;
+        inputs.storage = 0;
+      }
       // Copy saved empire settings, never unsaved drafts or live worker references.
       inputs.reservations = Object.fromEntries(
         Object.entries(normalizeReservations(game.houseInfo, user))

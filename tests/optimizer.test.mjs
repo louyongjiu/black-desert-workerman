@@ -337,9 +337,9 @@ test("worker cancellation ignores stale events and preserves the last received f
   );
   client.start({ budget: 1 });
   const old = workers[0];
-  old.onmessage({ data: { type: "solution", result: { value: 1 } } });
+  old.onmessage({ data: { runId: old.input.runId, type: "solution", result: { value: 1 } } });
   client.stop();
-  old.onmessage({ data: { type: "complete", result: { value: 999 } } });
+  old.onmessage({ data: { runId: old.input.runId, type: "complete", result: { value: 999 } } });
   assert.deepEqual(
     events.map((e) => e.type),
     ["solution", "stopped"]
@@ -347,9 +347,10 @@ test("worker cancellation ignores stale events and preserves the last received f
   assert.ok(old.terminated);
   client.start({ budget: 2 });
   old.onmessage({ data: { type: "error" } });
-  workers[1].onmessage({ data: { type: "complete", result: { value: 2 } } });
+  workers[1].onmessage({ data: { runId: workers[1].input.runId, type: "complete", result: { value: 2 } } });
   assert.equal(events.at(-1).result.value, 2);
-  assert.ok(workers[1].terminated);
+  assert.ok(!workers[1].terminated);
+  client.stop(false);
 });
 
 function realGame() {

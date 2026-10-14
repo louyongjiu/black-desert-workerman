@@ -1,13 +1,15 @@
 <script>
-import {useGameStore} from '../stores/game.js'
-import {useUserStore} from '../stores/user.js'
-import Worker from '../components/Worker.vue'
-import {formatFixed} from '../util.js'
+import { useGameStore } from "../stores/game.js";
+import { useUserStore } from "../stores/user.js";
+import Worker from "../components/Worker.vue";
+import { formatFixed } from "../util.js";
+import { useUiActionsStore } from "../stores/uiActions";
+import { workerKey } from "../ui/workerKeys.mjs";
 
 export default {
   setup() {
-    const gameStore = useGameStore()
-    const userStore = useUserStore()
+    const gameStore = useGameStore();
+    const userStore = useUserStore();
 
     /*userStore.$subscribe((mutation, state) => {
       const start = Date.now()
@@ -15,7 +17,7 @@ export default {
       console.log('userStore subscription took', Date.now()-start, 'ms')
     })*/
 
-    return { gameStore, userStore }
+    return { gameStore, userStore };
   },
 
   props: {
@@ -24,44 +26,42 @@ export default {
   },
 
   emits: [
-    'selectLodging',
-    'selectHouses',
-    'hireWorker',
-    'editWorker',
-    'sendWorker',
-    'panToPaPos',
+    "selectLodging",
+    "selectHouses",
+    "hireWorker",
+    "editWorker",
+    "sendWorker",
+    "panToPaPos",
   ],
 
   components: {
     Worker,
   },
 
-  data: () => ({
-  }),
+  data: () => ({}),
 
   computed: {
-
     infra() {
       if (this.tk in this.userStore.townsInfra) {
-        return this.userStore.townsInfra[this.tk]
-      }
-      else {
-        console.log(this.userStore.townsInfra)
-        throw new Error(`no infra for town: ${this.tk}`)
+        return this.userStore.townsInfra[this.tk];
+      } else {
+        console.log(this.userStore.townsInfra);
+        throw new Error(`no infra for town: ${this.tk}`);
       }
     },
-
   },
 
   methods: {
     formatFixed,
+    workerKey,
 
     fireWorker(who) {
-      this.userStore.userWorkers = this.userStore.userWorkers.filter(w => w != who)
+      useUiActionsStore().perform(["userWorkers"], (state) => {
+        state.userWorkers = state.userWorkers.filter((w) => w !== who);
+      });
     },
   },
-}
-
+};
 </script>
 
 <template>
@@ -69,17 +69,17 @@ export default {
     <tr>
       <th colspan="2">
         <template v-if="o">
-          {{ $t('worker') }}
+          {{ $t("worker") }}
           <button @click="this.$emit('hireWorker', tk)">
-            {{ $t('hire') }}
+            {{ $t("hire") }}
           </button>
         </template>
-        <template v-else> {{ $t('workers not hireable') }} </template>
+        <template v-else> {{ $t("workers not hireable") }} </template>
       </th>
 
-      <th class="center">🔨</th>
-      <th class="center">🦶</th>
-      <th class="center">🍀</th>
+      <th class="center"><abbr :title="$t('Work speed')">🔨</abbr></th>
+      <th class="center"><abbr :title="$t('Movement speed')">🦶</abbr></th>
+      <th class="center"><abbr :title="$t('Luck')">🍀</abbr></th>
 
       <th
         colspan="3"
@@ -105,7 +105,7 @@ export default {
               2
             )
           }}
-          {{ $t('M$/day/CP') }}
+          {{ $t("M$/day/CP") }}
         </template>
         <template v-else>
           {{
@@ -115,7 +115,7 @@ export default {
               1
             )
           }}
-          {{ $t('M$/day') }}
+          {{ $t("M$/day") }}
         </template>
         &nbsp;
 
@@ -134,7 +134,7 @@ export default {
             userStore.townsInfra[tk].cost +
               (tk in userStore.customJobsCp ? userStore.customJobsCp[tk] : 0)
           }}
-          {{ $t('CP') }}
+          {{ $t("CP") }}
           <button
             @click="this.$emit('selectHouses', tk)"
             :class="{
@@ -142,7 +142,7 @@ export default {
                 gameStore.ready && userStore.townsInfra[tk].success == false,
             }"
           >
-            {{ $t('config') }}
+            {{ $t("config") }}
           </button>
         </span>
       </th>
@@ -150,9 +150,8 @@ export default {
   </thead>
   <tbody>
     <template
-      v-for="(w, n) in userStore.userWorkers.filter(
-        (w) => gameStore.tnk2tk(w.tnk) == tk
-      )"
+      v-for="(w, n) in userStore.townWorkers(tk)"
+      :key="workerKey(w)"
     >
       <Worker
         :w="w"
@@ -169,8 +168,6 @@ export default {
     </template>
   </tbody>
 </template>
-
-
 
 <style scoped>
 .townbox {

@@ -1,4 +1,11 @@
 export default `
+All-town housing results¦全部城鎮住房結果¦Жильё во всех городах¦모든 마을 주택 결과¦すべての町の住宅結果
+Housing capacity by town¦各城鎮住房容量¦Вместимость жилья по городам¦마을별 주택 용량¦町ごとの住宅容量
+Housing calculation status¦住房計算狀態¦Статус расчёта жилья¦주택 계산 상태¦住宅計算の状態
+Calculating housing for {count} towns¦正在計算 {count} 個城鎮的住房¦Расчёт жилья для {count} городов¦마을 {count}개의 주택을 계산 중¦{count} 件の町の住宅を計算中
+Housing needs review in {count} towns. See the town details below.¦{count} 個城鎮的住房需要核對，請查看下方城鎮明細。¦Жильё в {count} городах требует проверки. Смотрите данные ниже.¦마을 {count}개의 주택을 검토해야 합니다. 아래 상세 정보를 확인하세요.¦{count} 件の町の住宅を確認してください。下の詳細を参照してください。
+No houses are needed for the current plan.¦目前方案不需要租用房屋。¦Для текущего плана аренда домов не требуется.¦현재 계획은 주택 대여가 필요하지 않습니다.¦現在の計画では住宅の借り入れは不要です。
+No active workshop storage requirements.¦目前沒有執行中工坊的倉儲需求。¦Нет потребности в складе для работающих мастерских.¦작동 중인 공방의 창고 필요량이 없습니다.¦稼働中の工房に必要な倉庫はありません。
 Empire housing¦帝國住房¦Жильё империи¦제국 주택¦帝国の住宅
 Free housing trial¦自由試算¦Свободный расчёт жилья¦자유 주택 계산¦自由試算
 Empire housing settings¦帝國住房設定¦Настройки жилья империи¦제국 주택 설정¦帝国の住宅設定

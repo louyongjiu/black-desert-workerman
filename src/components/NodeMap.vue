@@ -13,6 +13,7 @@ import { isNumber } from 'jstat-esm/lib/core/helpers';
 import { markRaw } from 'vue'
 import { mapLifecycle } from '../mapLifecycle.js'
 import { resourceUrl } from '../resourceUrls.mjs'
+import { frameUpdates } from '../ui/frameUpdates.mjs'
 
 function lerp(from, to, t) {
   return from + (to - from) * t;
@@ -103,7 +104,11 @@ export default {
   }),
 
   created() {
-    
+    this._layerChanges = new Set()
+    this._scheduleLayers = frameUpdates(() => this.flushLayerUpdates())
+  },
+  beforeUnmount() {
+    this._scheduleLayers.cancel()
   },
 
   async mounted() {
@@ -129,16 +134,17 @@ export default {
 
   watch: {
     'routingStore.routing.autotakenNodes'(newValue) {
-      this.updateLayers()
+      this.updateLayers('icons')
     },
     'userStore.mapHideInactive'(newValue) {
-      this.updateLayers()
+      this.updateLayers('icons')
     },
+    'userStore.mapIconSize'() { this.updateLayers('icons') },
     'linesCalc'(newValue) {
-      this.updateLayers()
+      this.updateLayers('lines')
     },
     'highlightNodes'(newValue) {
-      //this.updateLayers()  // done via HomeView.$refs.nodeMap.updateLayers()
+      this.updateLayers('icons')
     },
     'panPaPos'(newValue) {
       //console.log('panPaPos changed', newValue)
@@ -483,13 +489,22 @@ export default {
 
     },
 
-    updateLayers() {
+    updateLayers(kind) {
+      if (!this.deck) return
+      if (kind) this._layerChanges.add(kind)
+      else { this._layerChanges.add('lines'); this._layerChanges.add('icons') }
+      this._scheduleLayers()
+    },
+
+    flushLayerUpdates() {
       if (!this.deck)
         return
-      console.log('updateLayers')
-      this.lineLayer = markRaw(this.makeLineLayer())
-      this.highlightedIconLayer = markRaw(this.makeHighlightedIconsLayer())
-      this.iconLayer = markRaw(this.makeIconsLayer())
+      if (this._layerChanges.has('lines')) this.lineLayer = markRaw(this.makeLineLayer())
+      if (this._layerChanges.has('icons')) {
+        this.highlightedIconLayer = markRaw(this.makeHighlightedIconsLayer())
+        this.iconLayer = markRaw(this.makeIconsLayer())
+      }
+      this._layerChanges.clear()
       this.deck.setProps({
         layers: [
           this.tileLayer,

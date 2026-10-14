@@ -1,6 +1,10 @@
 import { STORAGE_LIMIT, plantzoneItemKeys } from "../housing/requirements.mjs";
 import { repairHousingChoice, townHousingPolicy } from "../housing/core.mjs";
-import { optimizeSkills, plantzoneProfit } from "./calculations.mjs";
+import {
+  optimizeSkills,
+  preparePlantzoneProfit,
+  prepareSkillSearch,
+} from "./calculations.mjs";
 import { connectionCosts } from "./graph.mjs";
 
 export function housingChoices(
@@ -50,7 +54,50 @@ export function housingChoices(
   );
 }
 
-export function prepareValues(snapshot, notify = () => {}) {
+export function createPreparationCache(limit = 12000) {
+  return {
+    limit,
+    refs: [],
+    candidates: new Map(),
+    distances: new Map(),
+    costs: new Map(),
+    skills: null,
+  };
+}
+
+export function prepareValues(
+  snapshot,
+  notify = () => {},
+  cache = createPreparationCache()
+) {
+  // Static snapshots are immutable. A new data version/reference invalidates
+  // geometry and skill caches; valuation keys cover mutable solve parameters.
+  const refs = [
+    snapshot.dataSignature,
+    snapshot.nodes,
+    snapshot.links,
+    snapshot.regionInfo,
+    snapshot.distances,
+    snapshot.drops,
+    snapshot.plantzones,
+    snapshot.skillData,
+    snapshot.workerStatic,
+  ];
+  if (refs.some((ref, i) => ref !== cache.refs[i])) {
+    cache.refs = refs;
+    cache.candidates.clear();
+    cache.distances.clear();
+    cache.costs.clear();
+    cache.skills = prepareSkillSearch(
+      snapshot.skillData,
+      snapshot.workerStatic
+    );
+  }
+  cache.skills ||= prepareSkillSearch(
+    snapshot.skillData,
+    snapshot.workerStatic
+  );
+  cache.skills.resetWorkers();
   const townKeys = Object.fromEntries(
     Object.values(snapshot.regionInfo)
       .filter((r) => r.waypoint)
@@ -59,22 +106,37 @@ export function prepareValues(snapshot, notify = () => {}) {
   const distanceIndexes = Object.fromEntries(
     snapshot.townIds.map((id) => [
       id,
-      new Map(
-        (snapshot.distances[townKeys[id]] || []).map(([key, value]) => [
-          Number(key),
-          value,
-        ])
-      ),
+      cache.distances.get(id) ||
+        cache.distances
+          .set(
+            id,
+            new Map(
+              (snapshot.distances[townKeys[id]] || []).map(([key, value]) => [
+                Number(key),
+                value,
+              ])
+            )
+          )
+          .get(id),
     ])
   );
   const costs = Object.fromEntries(
     snapshot.townIds.map((id) => [
       id,
-      connectionCosts(snapshot.nodes, snapshot.links, id),
+      cache.costs.get(id) ||
+        cache.costs
+          .set(id, connectionCosts(snapshot.nodes, snapshot.links, id))
+          .get(id),
     ])
   );
   const entries = [],
     missing = [];
+  const templates = Object.fromEntries(
+    snapshot.townIds.map((id) => [
+      id,
+      JSON.stringify(snapshot.townTemplates[id]),
+    ])
+  );
   let count = 0;
   for (const [key, drop] of Object.entries(snapshot.drops)) {
     const pzk = Number(key),
@@ -92,6 +154,14 @@ export function prepareValues(snapshot, notify = () => {}) {
       missing.push({ pzk, items: unavailable });
       continue;
     }
+    const resource = snapshot.resources[plant.regiongroup];
+    const profit = preparePlantzoneProfit(drop, snapshot.prices, resource);
+    const valuation = JSON.stringify([
+      drop.workload,
+      profit.values,
+      resource,
+      plant.species,
+    ]);
     const candidates = [];
     for (const town of snapshot.townIds) {
       const distance = distanceIndexes[town].get(pzk);
@@ -107,27 +177,31 @@ export function prepareValues(snapshot, notify = () => {}) {
           !plant.species?.length ||
           plant.species.includes(snapshot.workerStatic[worker.charkey].species)
       );
-      let best;
-      for (const worker of workers) {
-        const evaluated = optimizeSkills(
-          worker,
-          (stats) =>
-            plantzoneProfit(
-              drop,
-              snapshot.prices,
-              stats,
-              distance,
-              snapshot.resources[plant.regiongroup]
-            ),
-          snapshot.skillData,
-          snapshot.workerStatic
-        );
-        if (
-          Number.isFinite(evaluated.value) &&
-          evaluated.value > 0 &&
-          (!best || evaluated.value > best.value)
-        )
-          best = evaluated;
+      const cacheKey = `${pzk}:${town}:${distance}:${templates[town]}:${valuation}`;
+      let best = cache.candidates.get(cacheKey);
+      if (!cache.candidates.has(cacheKey)) {
+        for (const worker of workers) {
+          const evaluated = optimizeSkills(
+            worker,
+            (stats) => profit.evaluate(stats, distance),
+            snapshot.skillData,
+            snapshot.workerStatic,
+            cache.skills
+          );
+          if (
+            Number.isFinite(evaluated.value) &&
+            evaluated.value > 0 &&
+            (!best || evaluated.value > best.value)
+          )
+            best = evaluated;
+        }
+        cache.candidates.set(cacheKey, best);
+        if (cache.candidates.size > cache.limit)
+          cache.candidates.delete(cache.candidates.keys().next().value);
+      } else {
+        // Refresh recency without exposing cached worker arrays to callers.
+        cache.candidates.delete(cacheKey);
+        cache.candidates.set(cacheKey, best);
       }
       if (best)
         candidates.push({
@@ -135,7 +209,7 @@ export function prepareValues(snapshot, notify = () => {}) {
           town,
           townKey: townKeys[town],
           value: best.value,
-          worker: best.worker,
+          worker: { ...best.worker, skills: [...best.worker.skills] },
           connectionCost: costs[town][pzk],
           itemKeys: [...required],
         });

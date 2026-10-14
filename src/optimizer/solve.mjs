@@ -3,11 +3,13 @@ import { buildModel } from "./model.mjs";
 import { decodeResult } from "./result.mjs";
 import { greedySeed } from "./seed.mjs";
 
-export function solveSnapshot(highs, snapshot, emit = () => {}) {
+export function solveSnapshot(highs, snapshot, emit = () => {}, cache) {
   const started = performance.now();
   emit({ type: "progress", stage: "values" });
-  const prepared = prepareValues(snapshot, (update) =>
-    emit({ type: "progress", ...update })
+  const prepared = prepareValues(
+    snapshot,
+    (update) => emit({ type: "progress", ...update }),
+    cache
   );
   emit({
     type: "progress",

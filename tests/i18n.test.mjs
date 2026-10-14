@@ -9,10 +9,14 @@ import { localizeGameLanguage } from '../src/i18n/game.mjs';
 import {
   createTranslator,
   languages,
-  messages,
   normalize,
   translate,
 } from '../src/i18n/index.mjs';
+import { registerUiMessages } from '../src/i18n/index.mjs';
+import { messages, compileUiCatalogs } from '../src/i18n/catalog.mjs';
+for (const [language, groups] of Object.entries(compileUiCatalogs()))
+  for (const [group, dictionary] of Object.entries(groups))
+    registerUiMessages(language, group, dictionary);
 
 const require = createRequire(import.meta.url);
 const { parse: parseSfc, compileTemplate } = require('@vue/compiler-sfc');

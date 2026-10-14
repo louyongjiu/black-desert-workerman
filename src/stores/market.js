@@ -1,8 +1,10 @@
-import {defineStore} from "pinia";
-import {useGameStore} from './game'
-import {useUserStore} from './user'
+import { defineStore } from "pinia";
+import { useGameStore } from "./game";
+import { useUserStore } from "./user";
 import { formatFixed } from "../util";
-import { fetchJson } from '../dataLoading.mjs'
+import { fetchJson } from "../dataLoading.mjs";
+
+const requests = new WeakMap();
 
 export const useMarketStore = defineStore({
   id: "market",
@@ -15,112 +17,137 @@ export const useMarketStore = defineStore({
     apiMissingCount: 0,
     calculatedPrices: {},
     apiDatetime: 0,
+    apiRegion: null,
   }),
-  
+
   actions: {
     async fetchData() {
-      this.apiFetching = true
+      const request = (requests.get(this.$state) || 0) + 1;
+      requests.set(this.$state, request);
+      const user = useUserStore();
+      const region = user.selectedRegion,
+        language = user.selectedLang;
+      this.apiFetching = true;
       try {
-        await this.fetchDataFromApis()
-      }
-      finally {
-        this.apiFetching = false
+        await this.fetchDataFromApis(request, region, language);
+      } finally {
+        if (requests.get(this.$state) === request) this.apiFetching = false;
       }
     },
 
-    async fetchDataFromApis() {
-      const start = Date.now()
-      this.apiAlive = false
-      this.apiPartial = false
-      this.apiMissingCount = 0
-      this.ready = false
+    async fetchDataFromApis(request, region, language) {
+      const start = Date.now();
+      const userStore = useUserStore();
+      const current = () =>
+        requests.get(this.$state) === request &&
+        userStore.selectedRegion === region;
+      this.apiAlive = false;
+      this.apiPartial = false;
+      this.apiMissingCount = 0;
+      this.ready = false;
+      if (this.apiRegion !== region) {
+        this.apiPrices = {};
+        this.apiDatetime = 0;
+      }
 
-      const userStore = useUserStore()
-      const lang = userStore.selectedLang == 'jp' ? 'ja' : userStore.selectedLang
-      const input = encodeURIComponent(JSON.stringify({
-        language: lang,
-        region: userStore.selectedRegion,
-      }))
+      const lang = language == "jp" ? "ja" : language;
+      const input = encodeURIComponent(
+        JSON.stringify({
+          language: lang,
+          region,
+        })
+      );
       // Vercel and Vite proxy this same-origin route to BDOlytics.
-      const MARKETURL = `/api/bdolytics/market?input=${input}`
-      let marketEntries = []
+      const MARKETURL = `/api/bdolytics/market?input=${input}`;
+      let marketEntries = [];
       try {
-        const response = await fetch(MARKETURL)
+        const response = await fetch(MARKETURL);
         if (!response.ok) {
-          throw new Error(`BDOlytics market request failed: ${response.status}`)
+          throw new Error(
+            `BDOlytics market request failed: ${response.status}`
+          );
         }
-        const bdolytics = await response.json()
+        const bdolytics = await response.json();
         if (!Array.isArray(bdolytics.result?.data)) {
-          throw new Error('BDOlytics market response has an unexpected format')
+          throw new Error("BDOlytics market response has an unexpected format");
         }
-        marketEntries = bdolytics.result.data
+        marketEntries = bdolytics.result.data;
+      } catch (error) {
+        console.warn("BDOlytics market failed; trying Arsha", error);
       }
-      catch (error) {
-        console.warn('BDOlytics market failed; trying Arsha', error)
-      }
+      if (!current()) return;
 
-      const gameStore = useGameStore()
-      const uset = new Set(gameStore.itemKeys)
-      uset.add(9492)  // feed
+      const gameStore = useGameStore();
+      const uset = new Set(gameStore.itemKeys);
+      uset.add(9492); // feed
       //console.log('uset', uset)
 
-      const apiPrices = {}
-      marketEntries.forEach(entry => {
+      const apiPrices = {};
+      marketEntries.forEach((entry) => {
         if (entry.price > 0 && uset.has(entry.itemId)) {
-          apiPrices[entry.itemId] = entry.price
+          apiPrices[entry.itemId] = entry.price;
+        } else if (
+          entry.price > 0 &&
+          gameStore.ready &&
+          gameStore.craftInputItemKeySet.has(entry.itemId)
+        ) {
+          apiPrices[entry.itemId] = entry.price;
         }
-        else if (entry.price > 0 && gameStore.ready && gameStore.craftInputItemKeySet.has(entry.itemId)) {
-          apiPrices[entry.itemId] = entry.price
-        }
-      })
+      });
 
       // openable sacks
-      this.calculatedPrices = await fetchJson('data/manual/calculated_prices.json')
+      const calculatedPrices = await fetchJson(
+        "data/manual/calculated_prices.json"
+      );
+      if (!current()) return;
 
       // Vendor-priced and locally calculated items do not need a market API price.
-      const requiredMarketItems = [...uset].filter(itemId =>
-        !(itemId in gameStore.vendorPrices) &&
-        !(itemId in this.calculatedPrices)
-      )
-      let missingItems = requiredMarketItems.filter(itemId => !(itemId in apiPrices))
+      const requiredMarketItems = [...uset].filter(
+        (itemId) =>
+          !(itemId in gameStore.vendorPrices) && !(itemId in calculatedPrices)
+      );
+      let missingItems = requiredMarketItems.filter(
+        (itemId) => !(itemId in apiPrices)
+      );
 
       // BDOlytics occasionally omits region-specific items. Arsha accepts repeated
       // id query parameters and returns either one object or an array of objects.
       if (missingItems.length > 0) {
-        const arshaRegion = {
-          CEU: 'console_eu',
-          CNA: 'console_na',
-        }[userStore.selectedRegion] ?? userStore.selectedRegion.toLowerCase()
+        const arshaRegion =
+          {
+            CEU: "console_eu",
+            CNA: "console_na",
+          }[region] ?? region.toLowerCase();
 
-        const fetchArshaBatch = async itemIds => {
-          const params = new URLSearchParams()
-          itemIds.forEach(itemId => params.append('id', itemId))
-          params.set('lang', userStore.selectedLang)
-          const url = `https://api.arsha.io/v2/${arshaRegion}/item?${params}`
-          const response = await fetch(url)
+        const fetchArshaBatch = async (itemIds) => {
+          const params = new URLSearchParams();
+          itemIds.forEach((itemId) => params.append("id", itemId));
+          params.set("lang", language);
+          const url = `https://api.arsha.io/v2/${arshaRegion}/item?${params}`;
+          const response = await fetch(url);
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`)
+            throw new Error(`HTTP ${response.status}`);
           }
-          const data = await response.json()
-          return Array.isArray(data) ? data : [data]
-        }
+          const data = await response.json();
+          return Array.isArray(data) ? data : [data];
+        };
 
-        const addArshaPrices = entries => {
-          entries.forEach(entry => {
+        const addArshaPrices = (entries) => {
+          entries.forEach((entry) => {
             if (missingItems.includes(entry.id) && entry.basePrice > 0) {
-              apiPrices[entry.id] = entry.basePrice
+              apiPrices[entry.id] = entry.basePrice;
             }
-          })
-        }
+          });
+        };
 
         // Small batches are more reliable on Arsha.
         for (let offset = 0; offset < missingItems.length; offset += 3) {
-          const batch = missingItems.slice(offset, offset + 3)
+          if (!current()) return;
+          const batch = missingItems.slice(offset, offset + 3);
           try {
-            addArshaPrices(await fetchArshaBatch(batch))
-          }
-          catch (error) {
-            console.warn('Arsha market batch failed', batch, error)
+            addArshaPrices(await fetchArshaBatch(batch));
+          } catch (error) {
+            console.warn("Arsha market batch failed", batch, error);
           }
         }
 
@@ -128,139 +155,147 @@ export const useMarketStore = defineStore({
         // Retry every unresolved item separately, with a short delay between
         // rounds to accommodate Arsha's occasionally flaky upstream cache.
         for (let attempt = 1; attempt <= 5; attempt++) {
-          const unresolvedItems = requiredMarketItems.filter(itemId => !(itemId in apiPrices))
-          if (unresolvedItems.length === 0) break
+          if (!current()) return;
+          const unresolvedItems = requiredMarketItems.filter(
+            (itemId) => !(itemId in apiPrices)
+          );
+          if (unresolvedItems.length === 0) break;
           if (attempt > 1) {
-            await new Promise(resolve => setTimeout(resolve, 500 * attempt))
+            await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
           }
           for (const itemId of unresolvedItems) {
+            if (!current()) return;
             try {
-              addArshaPrices(await fetchArshaBatch([itemId]))
-            }
-            catch (itemError) {
-              console.warn('Arsha market item failed', itemId, itemError)
+              addArshaPrices(await fetchArshaBatch([itemId]));
+            } catch (itemError) {
+              console.warn("Arsha market item failed", itemId, itemError);
             }
           }
         }
-        missingItems = requiredMarketItems.filter(itemId => !(itemId in apiPrices))
+        missingItems = requiredMarketItems.filter(
+          (itemId) => !(itemId in apiPrices)
+        );
       }
-      this.apiMissingCount = missingItems.length
+      if (!current()) return;
+      this.calculatedPrices = calculatedPrices;
+      this.apiMissingCount = missingItems.length;
 
       for (const key of Object.keys(gameStore.vendorPrices)) {
-        userStore.keepItems[key] = true
+        userStore.keepItems[key] = true;
       }
 
       if (4202 in apiPrices) {
-        this.apiPrices = apiPrices
-        this.apiDatetime = Date.now()
-        this.apiAlive = missingItems.length === 0
-        this.apiPartial = missingItems.length > 0
-        this.ready = true
-        localStorage.setItem('market', JSON.stringify({...this.$state, apiFetching: false}))
+        this.apiRegion = region;
+        this.apiPrices = apiPrices;
+        this.apiDatetime = Date.now();
+        this.apiAlive = missingItems.length === 0;
+        this.apiPartial = missingItems.length > 0;
+        this.ready = true;
+        localStorage.setItem(
+          "market",
+          JSON.stringify({ ...this.$state, apiFetching: false })
+        );
       }
       if (missingItems.length > 0) {
-        console.warn('Missing required market prices', missingItems)
+        console.warn("Missing required market prices", missingItems);
       }
-      
-      console.log('fetchMarket took', Date.now()-start, 'ms')
+
+      console.log("fetchMarket took", Date.now() - start, "ms");
     },
 
     itemPriceUrl(ik) {
-      const userStore = useUserStore()
-      if (ik in this.apiPrices) return `https://bdolytics.com/${userStore.selectedLang}/market/item/${ik}`
-      return userStore.externalItemUrl + ik
+      const userStore = useUserStore();
+      if (ik in this.apiPrices)
+        return `https://bdolytics.com/${userStore.selectedLang}/market/item/${ik}`;
+      return userStore.externalItemUrl + ik;
     },
 
     priceBunch(bunch) {
       const ret = {
         val: null,
-        desc: '',
-      }
+        desc: "",
+      };
       if (bunch === null) {
-        return ret
+        return ret;
       }
-      if (typeof bunch === 'undefined') {
-        return ret
+      if (typeof bunch === "undefined") {
+        return ret;
       }
-      ret.val = 0
+      ret.val = 0;
       for (const [k, q] of Object.entries(bunch)) {
         if (k in this.prices) {
-          const stackPrice = this.prices[k] * q
-          ret.val += stackPrice
-          const p = this.prices[k]
-          const pStr = `${p}`.length < 8 ? `${p}` : formatFixed(p, 3)
-          const qStr = `${q}`.length < 8 ? `${q}` : formatFixed(q, 3)
-          const spStr = `${stackPrice}`.length < 8 ? `${stackPrice}` : formatFixed(stackPrice)
-          ret.desc += `${pStr} x ${qStr} = ${spStr}\n`
-        }
-        else {
-          ret.val = NaN
-          ret.desc += `??? x ${q} = ???\n`
+          const stackPrice = this.prices[k] * q;
+          ret.val += stackPrice;
+          const p = this.prices[k];
+          const pStr = `${p}`.length < 8 ? `${p}` : formatFixed(p, 3);
+          const qStr = `${q}`.length < 8 ? `${q}` : formatFixed(q, 3);
+          const spStr =
+            `${stackPrice}`.length < 8
+              ? `${stackPrice}`
+              : formatFixed(stackPrice);
+          ret.desc += `${pStr} x ${qStr} = ${spStr}\n`;
+        } else {
+          ret.val = NaN;
+          ret.desc += `??? x ${q} = ???\n`;
         }
       }
-      return ret
+      return ret;
     },
 
     pricePzd(pzd, luck) {
-      const u = this.priceBunch(pzd.unlucky).val
+      const u = this.priceBunch(pzd.unlucky).val;
       if (pzd.lucky) {
-        const l = this.priceBunch(pzd.lucky).val
-        return luck/100 * l + (1 - luck/100) * u
+        const l = this.priceBunch(pzd.lucky).val;
+        return (luck / 100) * l + (1 - luck / 100) * u;
       }
-      return u
+      return u;
     },
 
     priceLerp(luckyPrice, unluckyPrice, luck) {
-      if (luckyPrice === null)
-        return unluckyPrice
-      return luck/100 * luckyPrice + (1 - luck/100) * unluckyPrice
+      if (luckyPrice === null) return unluckyPrice;
+      return (luck / 100) * luckyPrice + (1 - luck / 100) * unluckyPrice;
     },
-
   },
 
   getters: {
     prices() {
-      const start = Date.now()
-      const userStore = useUserStore()
-      const gameStore = useGameStore()
-      
-      let ret = {}
+      const start = Date.now();
+      const userStore = useUserStore();
+      const gameStore = useGameStore();
+
+      let ret = {};
       for (const [key, custom] of Object.entries(userStore.customPrices)) {
-        if (custom === "") continue
-        ret[key] = custom
+        if (custom === "") continue;
+        ret[key] = custom;
       }
       for (const [key, api] of Object.entries(this.apiPrices)) {
-        if (key in ret) continue
-        ret[key] = api
+        if (key in ret) continue;
+        ret[key] = api;
       }
       for (const [key, vendor] of Object.entries(gameStore.vendorPrices)) {
-        if (key in ret) continue
-        ret[key] = vendor
+        if (key in ret) continue;
+        ret[key] = vendor;
       }
 
       for (const key of Object.keys(ret)) {
         // apply tax
-        if (key in userStore.keepItems && userStore.keepItems[key])
-          continue
-        if (key in gameStore.vendorPrices)
-          continue
-        ret[key] *= userStore.selectedTax
+        if (key in userStore.keepItems && userStore.keepItems[key]) continue;
+        if (key in gameStore.vendorPrices) continue;
+        ret[key] *= userStore.selectedTax;
       }
 
       for (const [key, value] of Object.entries(this.calculatedPrices)) {
         if (key in userStore.customPrices && userStore.customPrices[key] !== "")
-          continue
-        ret[key] = 0
+          continue;
+        ret[key] = 0;
         for (const [component_ik, component_qty] of Object.entries(value)) {
-          ret[key] += ret[component_ik] * component_qty
+          ret[key] += ret[component_ik] * component_qty;
         }
         //console.log('calculated price:', key, ret[key])
       }
-      
-      console.log('prices getter took', Date.now()-start, 'ms')
-      return ret
+
+      console.log("prices getter took", Date.now() - start, "ms");
+      return ret;
     },
-
-
   },
 });

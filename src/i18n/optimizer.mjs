@@ -2,6 +2,7 @@
 // remains independent of Vue; localization happens when the UI renders them.
 // Columns: source, English, Traditional Chinese, Russian, Korean, Japanese.
 export default `
+Game data changed; reload this page before optimizing¦Game data changed; reload this page before optimizing¦遊戲資料已變更，請重新載入此頁後再最佳化¦Данные игры изменились; перезагрузите страницу перед оптимизацией¦게임 데이터가 변경되었습니다. 페이지를 새로고침한 후 최적화하세요¦ゲームデータが変更されました。ページを再読み込みしてから最適化してください
 帝国优化¦Empire optimizer¦帝國最佳化¦Оптимизация империи¦제국 최적화¦帝国最適化
 给定贡献点预算，规划采集点、工人城镇、连接和住房。计算在当前浏览器完成。¦Plan gathering sites, worker towns, connections and housing within a contribution point budget. Calculations run in this browser.¦依貢獻度預算規劃採集點、工人城鎮、連接和住房。計算在目前瀏覽器內完成。¦Планируйте узлы, города рабочих, связи и жильё в пределах бюджета влияния. Расчёты выполняются в браузере.¦공헌도 예산에 맞춰 생산 거점, 일꾼 마을, 연결과 주거를 계획합니다. 계산은 이 브라우저에서 실행됩니다.¦貢献度予算内で採集拠点、労働者の町、接続、住宅を計画。計算はこのブラウザで実行します。
 撤销上次应用¦Undo last application¦撤銷上次套用¦Отменить последнее применение¦마지막 적용 취소¦前回の適用を取り消す

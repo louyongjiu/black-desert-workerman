@@ -1,16 +1,17 @@
 <script>
-import {useUserStore} from '../stores/user'
-import {useGameStore} from '../stores/game'
-import {formatFixed} from '../util.js'
-import WorkerJobDescription from '../components/WorkerJobDescription.vue'
-import ItemIcon from '../components/lo/ItemIcon.vue'
-import WorkshopStorage from './WorkshopStorage.vue'
-import HouseReservations from './HouseReservations.vue'
+import { useUserStore } from "../stores/user";
+import { useGameStore } from "../stores/game";
+import { formatFixed } from "../util.js";
+import WorkerJobDescription from "../components/WorkerJobDescription.vue";
+import ItemIcon from "../components/lo/ItemIcon.vue";
+import WorkshopStorage from "./WorkshopStorage.vue";
+import HouseReservations from "./HouseReservations.vue";
+import { warehouseSlots } from "../housing/overview.mjs";
 
 export default {
   setup() {
-    const userStore = useUserStore()
-    const gameStore = useGameStore()
+    const userStore = useUserStore();
+    const gameStore = useGameStore();
 
     /*userStore.$subscribe((mutation, state) => {
       const start = Date.now()
@@ -18,16 +19,15 @@ export default {
       console.log('userStore subscription took', Date.now()-start, 'ms')
     })*/
 
-    return { gameStore, userStore }
+    return { gameStore, userStore };
   },
-
 
   props: {
     tk: Number,
     show: {
       type: Boolean,
-      default: false
-    }
+      default: false,
+    },
   },
 
   components: {
@@ -43,61 +43,56 @@ export default {
   }),
 
   computed: {
-    wantLodging() {
-      if (!(this.tk in this.userStore.lodgingP2W))
-        this.userStore.lodgingP2W[this.tk] = 0
-      const req = this.userStore.townWorkers(this.tk).length
-      - this.userStore.lodgingP2W[this.tk]
-      - 1
-      return req > 0 ? req : 0
+    paidBeds: {
+      get() {
+        return this.userStore.lodgingP2W[this.tk] ?? 0;
+      },
+      set(value) {
+        this.userStore.lodgingP2W[this.tk] = value;
+      },
     },
-
-    wantStorage() {
-      if (!(this.userStore.townsStoreItemkeys[this.tk].size))
-        return 0
-      if (!(this.tk in this.userStore.storageP2W))
-        this.userStore.storageP2W[this.tk] = 0
-      if (!(this.tk in this.userStore.storagePersonal))
-        this.userStore.storagePersonal[this.tk] = 0
-      const req = this.userStore.townsStoreItemkeys[this.tk].size
-      + this.userStore.storagePersonal[this.tk]
-      - this.userStore.storageP2W[this.tk]
-      - this.userStore.baseStorage
-      return req > 0 ? req : 0
+    paidStorage: {
+      get() {
+        return this.userStore.storageP2W[this.tk] ?? 0;
+      },
+      set(value) {
+        this.userStore.storageP2W[this.tk] = value;
+      },
+    },
+    personalStorage: {
+      get() {
+        return this.userStore.storagePersonal[this.tk] ?? 0;
+      },
+      set(value) {
+        this.userStore.storagePersonal[this.tk] = value;
+      },
+    },
+    stock() {
+      return this.userStore.warehouseRequirements[this.tk] || {};
     },
 
     bestLookup() {
-      return this.userStore.townsInfra[this.tk]
+      return this.userStore.townsInfra[this.tk];
+    },
+    requiredStorage() {
+      return Math.max(0, this.bestLookup?.wantStorage ?? 0);
     },
 
     storageViewCount() {
-      const ret = this.userStore.baseStorage + this.userStore.storageP2W[this.tk] + this.userStore.townsInfra[this.tk].storage
-      return isNaN(ret) ? 0 : ret
+      return Math.min(
+        192,
+        this.userStore.baseStorage +
+          Number(this.paidStorage || 0) +
+          Number(this.bestLookup?.storage || 0)
+      );
     },
 
     ingameSortedItems() {
-      const workeritems = [...this.userStore.townsStoreItemkeys[this.tk]]
-      // first by itemType (equipment/material/etc), 
-      // then by itemGrade (orange/yellow/blue/green), 
-      // and if those are equal then by itemKey (descending)
-      workeritems.sort((a, b) => {
-        var d = this.gameStore.itemInfo[b].typePriority - this.gameStore.itemInfo[a].typePriority
-        if (d) return d
-        var d = this.gameStore.itemInfo[b].grade - this.gameStore.itemInfo[a].grade
-        if (d) return d
-        return b - a
-      })
-      const personal = Array(this.userStore.storagePersonal[this.tk]).fill('P')
-      const ret = workeritems.concat(personal)
-      
-      if (workeritems.length) {
-        ret.push('F')
-      }
-      return ret
+      return warehouseSlots(this.stock, this.gameStore.itemInfo);
     },
 
     displaySlotsCount() {
-      return Math.max(this.storageViewCount, this.ingameSortedItems.length)
+      return Math.max(this.storageViewCount, this.ingameSortedItems.length);
     },
   },
 
@@ -105,54 +100,61 @@ export default {
     formatFixed,
 
     houseCraftPickedTooltip(tk) {
-      const ret = []
-      const plan=this.userStore.townsInfra[tk]
+      const ret = [];
+      const plan = this.userStore.townsInfra[tk];
       plan.indices?.forEach((hk, i) => {
-        if (this.userStore.townsInfra[tk].states[i] == 0)
-          return
-        const icon = plan.states[i] == 1 ? this.gameStore.houseStorage(hk)+'📦' : plan.states[i] == 2 ? this.gameStore.houseLodging(hk)+'🛏️' : plan.reservations?.[hk]?.automatic ? this.$t('Working workshop') : this.gameStore.uloc.housetype[plan.usages?.[i] ?? 0]
-        ret.push(icon + ' ' + this.gameStore.uloc.char[hk])
-      })
-      return ret.join('\n')
+        if (this.userStore.townsInfra[tk].states[i] == 0) return;
+        const icon =
+          plan.states[i] == 1
+            ? this.gameStore.houseStorage(hk) + "📦"
+            : plan.states[i] == 2
+            ? this.gameStore.houseLodging(hk) + "🛏️"
+            : plan.reservations?.[hk]?.automatic
+            ? this.$t("Working workshop")
+            : this.gameStore.uloc.housetype[plan.usages?.[i] ?? 0];
+        ret.push(icon + " " + this.gameStore.uloc.char[hk]);
+      });
+      return ret.join("\n");
     },
 
     itemTooltip(tk, ik) {
-      const head = this.gameStore.uloc.item[ik]
-      let from = ""
-      this.userStore.workingWorkers.forEach(worker => {
+      const head = this.gameStore.uloc.item[ik];
+      let from = "";
+      this.userStore.workingWorkers.forEach((worker) => {
         if (this.gameStore.jobIsPz(worker.job)) {
-          const wstk = this.gameStore.tnk2tk(worker.job.storage)
-          const witemkeys = this.gameStore.plantzones[worker.job.pzk].itemkeys
+          const wstk = this.gameStore.tnk2tk(worker.job.storage);
+          const witemkeys = this.gameStore.plantzones[worker.job.pzk].itemkeys;
           if (wstk == tk && witemkeys.has(ik)) {
-            const pzk = worker.job.pzk
-            if (from.length == 0) from += ` ${this.$t('brought by:')}\n`
-            const worker_town = this.gameStore.uloc.node[worker.tnk]
-            from += `${worker_town} ${this.$t('worker')} ${worker.label} ${this.$t('from')} ${this.gameStore.parentNodeName(pzk)}\n`
+            const pzk = worker.job.pzk;
+            if (from.length == 0) from += ` ${this.$t("brought by:")}\n`;
+            const worker_town = this.gameStore.uloc.node[worker.tnk];
+            from += `${worker_town} ${this.$t("worker")} ${
+              worker.label
+            } ${this.$t("from")} ${this.gameStore.parentNodeName(pzk)}\n`;
           }
         }
-      })
-      return head + from
+      });
+      return head + from;
     },
   },
-  
-}
+};
 </script>
 
 <template>
   <template v-if="tk > 0">
     <table v-if="0">
       <tr>
-        <th>{{ $t('jobs') }}</th>
+        <th>{{ $t("jobs") }}</th>
         <th>🛏️</th>
         <th>📦</th>
-        <th>{{ $t('M$/day') }}</th>
-        <th>{{ $t('CP') }}</th>
+        <th>{{ $t("M$/day") }}</th>
+        <th>{{ $t("CP") }}</th>
         <th v-if="0">🗺️</th>
-        <th>{{ $t('M$/day/CP') }}</th>
-        <th>{{ $t('Δeff') }}</th>
+        <th>{{ $t("M$/day/CP") }}</th>
+        <th>{{ $t("Δeff") }}</th>
       </tr>
       <tr>
-        <td>{{ $t('personal') }}</td>
+        <td>{{ $t("personal") }}</td>
         <td></td>
         <td>{{ userStore.storagePersonal[tk] }}</td>
         <td></td>
@@ -188,12 +190,12 @@ export default {
 
     <p>
       <span style="font-size: x-large">{{ gameStore.uloc.town[tk] }}</span>
-      {{ $t('housing config') }}
+      {{ $t("housing config") }}
     </p>
 
     <template v-if="tk == 619">
       <input type="checkbox" v-model="userStore.activateAncado" />
-      {{ $t('Activate (keep connected to nearest town)') }}
+      {{ $t("Activate (keep connected to nearest town)") }}
       <abbr
         class="tooltip"
         :title="
@@ -206,10 +208,9 @@ export default {
     </template>
 
     <div class="section" v-if="tk in gameStore.lodgingPerTown">
-      <h3>{{ $t('🛏️ lodging') }}</h3>
-      {{ userStore.townWorkers(tk).length }} {{ $t('used by workers')
-      }}<br />
-      {{ $t('- 1 initial') }}<br />
+      <h3>{{ $t("🛏️ lodging") }}</h3>
+      {{ userStore.townWorkers(tk).length }} {{ $t("used by workers") }}<br />
+      {{ $t("- 1 initial") }}<br />
       -
       <input
         type="number"
@@ -217,38 +218,39 @@ export default {
         min="0"
         max="20"
         :disabled="tk == 619 && !userStore.activateAncado"
-        v-model.number="userStore.lodgingP2W[tk]"
+        v-model.number="paidBeds"
       />
-      {{ $t('from P2W') }}<br />
-      = {{ userStore.townsInfra[tk].wantLodging }} {{ $t('required') }}
+      {{ $t("from P2W") }}<br />
+      = {{ Math.max(0, userStore.townsInfra[tk].wantLodging) }}
+      {{ $t("required") }}
       <span v-if="userStore.townsInfra[tk].warnL">{{
-        $t('← max possible')
+        $t("← max possible")
       }}</span>
       <span v-if="userStore.townsInfra[tk].errL" class="red">{{
-        $t('← too much!')
+        $t("← too much!")
       }}</span>
       <br />
       <strong>
-        {{ userStore.townsInfra[tk].lodging }} {{ $t('found') }}
+        {{ userStore.townsInfra[tk].lodging }} {{ $t("found") }}
       </strong>
     </div>
 
     <div class="section">
       <div id="storageParent">
         <div id="storageLeft">
-          <h3>{{ $t('📦 storage') }}</h3>
+          <h3>{{ $t("📦 storage") }}</h3>
           {{
-            userStore.townsStoreItemkeys[tk] &&
-            userStore.townsStoreItemkeys[tk].size
+            Object.values(stock.items || {}).reduce(
+              (sum, count) => sum + count,
+              0
+            )
           }}
-          {{ $t('worker items') }}<br />
-          <template
-            v-if="
-              userStore.townsStoreItemkeys[tk] &&
-              userStore.townsStoreItemkeys[tk].size > 0
-            "
-          >
-            {{ $t('+ 1 Free slot') }}<br />
+          {{ $t("worker items") }}<br />
+          <template v-if="stock.spare">
+            {{ $t("+ 1 Free slot") }}<br />
+          </template>
+          <template v-if="stock.extra">
+            + {{ stock.extra }} {{ $t("Workshop storage") }} 📦<br />
           </template>
           +
           <input
@@ -256,11 +258,11 @@ export default {
             class="w42em"
             min="0"
             max="192"
-            v-model.number="userStore.storagePersonal[tk]"
+            v-model.number="personalStorage"
           />
-          {{ $t('Personal items') }}<br />
+          {{ $t("Personal items") }}<br />
           - {{ userStore.baseStorage }}
-          <span class="markInnate underline">{{ $t('initial') }}</span
+          <span class="markInnate underline">{{ $t("initial") }}</span
           ><br />
           -
           <input
@@ -268,27 +270,24 @@ export default {
             class="w42em"
             min="0"
             max="192"
-            v-model.number="userStore.storageP2W[tk]"
+            v-model.number="paidStorage"
           />
-          {{ ' ' }}<span class="markP2W underline">{{ $t('from P2W') }}</span
+          {{ " " }}<span class="markP2W underline">{{ $t("from P2W") }}</span
           ><br />
-          = {{ userStore.townsInfra[tk].wantStorage }}
-          <span class="markProvided underline">{{ $t('required') }}</span>
+          = {{ requiredStorage }}
+          <span class="markProvided underline">{{ $t("required") }}</span>
           <span v-if="userStore.townsInfra[tk].warnS">
-            {{ $t('← max possible') }}</span
+            {{ $t("← max possible") }}</span
           >
           <span v-if="userStore.townsInfra[tk].errS" class="red">
-            {{ $t('← too much!') }}</span
+            {{ $t("← too much!") }}</span
           >
           <br />
           <strong
-            >{{ userStore.townsInfra[tk].storage }} {{ $t('found') }}</strong
+            >{{ userStore.townsInfra[tk].storage }} {{ $t("found") }}</strong
           >
-          {{
-            userStore.townsInfra[tk].storage -
-            userStore.townsInfra[tk].wantStorage
-          }}
-          <span class="markExtra underline">{{ $t('extra') }}</span>
+          {{ userStore.townsInfra[tk].storage - requiredStorage }}
+          <span class="markExtra underline">{{ $t("extra") }}</span>
         </div>
         <div id="storageItemList">
           <template v-for="n in displaySlotsCount">
@@ -299,32 +298,43 @@ export default {
                 markInnate: 0 <= n && n <= userStore.baseStorage,
                 markP2W:
                   userStore.baseStorage < n &&
-                  n <= userStore.baseStorage + userStore.storageP2W[tk],
+                  n <= userStore.baseStorage + Number(paidStorage || 0),
                 markProvided:
-                  userStore.baseStorage + userStore.storageP2W[tk] < n &&
+                  userStore.baseStorage + Number(paidStorage || 0) < n &&
                   n <=
                     userStore.baseStorage +
-                      userStore.storageP2W[tk] +
-                      userStore.townsInfra[tk].wantStorage,
+                      Number(paidStorage || 0) +
+                      requiredStorage,
                 markExtra:
                   userStore.baseStorage +
-                    userStore.storageP2W[tk] +
-                    userStore.townsInfra[tk].wantStorage <
+                    Number(paidStorage || 0) +
+                    requiredStorage <
                     n &&
                   n <=
                     userStore.baseStorage +
-                      userStore.storageP2W[tk] +
+                      Number(paidStorage || 0) +
                       userStore.townsInfra[tk].storage,
               }"
             >
               <span
                 class="textItem"
-                v-if="n - 1 > ingameSortedItems.length"
+                v-if="n - 1 >= ingameSortedItems.length"
               ></span>
               <span
                 class="textItem"
                 v-else-if="isNaN(ingameSortedItems[n - 1])"
-                >{{ ingameSortedItems[n - 1] }}</span
+                :title="
+                  ingameSortedItems[n - 1] === 'W'
+                    ? $t('Workshop storage')
+                    : ingameSortedItems[n - 1] === 'P'
+                    ? $t('Personal items')
+                    : $t('+ 1 Free slot')
+                "
+                >{{
+                  ingameSortedItems[n - 1] === "W"
+                    ? "📦"
+                    : ingameSortedItems[n - 1]
+                }}</span
               >
               <abbr
                 v-else
@@ -341,16 +351,16 @@ export default {
 
     <details>
       <summary>
-        {{ $t('Found cost:') }} {{ userStore.townsInfra[tk].cost }}
-        {{ $t('CP') }}
+        {{ $t("Found cost:") }} {{ bestLookup?.totalCost ?? bestLookup?.cost }}
+        {{ $t("CP") }}
       </summary>
       <pre class="fsxs">{{
         userStore.townsInfra[tk].success
           ? houseCraftPickedTooltip(tk)
-          : $t('FAILED')
+          : $t("FAILED")
       }}</pre>
     </details>
-    <p v-if="bestLookup?.pending">{{ $t('Calculating housing') }}</p>
+    <p v-if="bestLookup?.pending">{{ $t("Calculating housing") }}</p>
     <p v-else-if="bestLookup?.error" role="alert">{{ $t(bestLookup.error) }}</p>
     <HouseReservations :town-key="Number(tk)" />
     <WorkshopStorage :town-key="Number(tk)" />
@@ -412,4 +422,3 @@ strong {
   cursor: help;
 }
 </style>
-

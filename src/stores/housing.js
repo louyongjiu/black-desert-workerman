@@ -118,12 +118,12 @@ export const useHousingStore = defineStore("housing", {
       const preview = optimizer.result;
       if (
         preview?.createdAt === user.optimizerPlan?.createdAt &&
-        validAppliedPlan(user, game)
+        (user.housingPlanValid ?? validAppliedPlan(user, game))
       )
         return { plan: user.optimizerPlan, preview: false };
       if (validPreview(preview, user, game))
         return { plan: preview, preview: true };
-      if (validAppliedPlan(user, game))
+      if (user.housingPlanValid ?? validAppliedPlan(user, game))
         return { plan: user.optimizerPlan, preview: false };
       return null;
     },
@@ -152,7 +152,7 @@ export const useHousingStore = defineStore("housing", {
         return { ...empty, error: error.message };
       }
       empty.housingMethod = request.housingMethod;
-      if (useApplied && validAppliedPlan(user, game)) {
+      if (useApplied && (user.housingPlanValid ?? validAppliedPlan(user, game))) {
         const current = housingFromPlan(
           user.optimizerPlan,
           townKey,

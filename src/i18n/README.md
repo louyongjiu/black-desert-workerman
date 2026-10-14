@@ -11,6 +11,16 @@ English source followed by Traditional Chinese, Russian, Korean, and Japanese.
 `optimizer.mjs` additionally has an English column because its original source
 messages were Chinese. `about.mjs` contains the longer help messages.
 
+`catalog.mjs` combines these source tables during builds and tests. The runtime
+loads generated `data/ui/<language>/<group>.json` files for `common`, `housing`,
+`optimizer`, `research`, and `about`; it never imports the complete catalogue.
+Edit the source tables, then run `npm run build` (or start `npm run dev`) to
+regenerate the dictionaries. Production publishing gives them content hashes
+through the normal resource manifest. Route guards and localized async
+components load their groups before rendering; language changes retain the
+previous labels until the required dictionaries are ready. Failed requests can
+be retried. Shared navigation labels belong to `common`.
+
 Messages are plain text; Vue escapes them. Use named placeholders for values.
 Solver errors remain independent of Vue and are localized when displayed, so
 switching languages also updates existing error messages. Preserve stable chart
@@ -24,3 +34,5 @@ data are retained. Named NPCs retain their source names.
 `tests/i18n.test.mjs` checks translation completeness, placeholders, language
 reactivity, template compilation, and untranslated text or attributes. Its
 literal allowlist is limited to formulas, server identifiers, and proper names.
+`tests/i18nLoading.test.mjs` checks catalogue splitting, duplicate-key consistency,
+shared navigation, request coalescing, retries, and language switching.

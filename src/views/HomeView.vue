@@ -1,39 +1,53 @@
 <script>
-import LocalizedFileInput from '../components/LocalizedFileInput.vue'
+import ImportPreview from "../components/ImportPreview.vue";
+import { useUiActionsStore } from "../stores/uiActions";
 import draggable from "vuedraggable";
-import {useGameStore} from '../stores/game'
-import {useUserStore} from '../stores/user'
-import {useOptimizerStore} from '../stores/optimizer'
-import {useRoutingStore} from '../stores/routing'
-import {useMarketStore} from '../stores/market'
-import {useMapStore} from '../stores/map'
-import Worker from '../components/Worker.vue'
-import TownWorkers from '../components/TownWorkers.vue'
-import Plantzone from '../components/Plantzone.vue'
-import {formatFixed, randBetween, levelup} from '../util.js'
-import ModalDialog from '../components/ModalDialog.vue'
+import { useGameStore } from "../stores/game";
+import { useUserStore } from "../stores/user";
+import { useOptimizerStore } from "../stores/optimizer";
+import { useRoutingStore } from "../stores/routing";
+import { useMarketStore } from "../stores/market";
+import { useMapStore } from "../stores/map";
+import Worker from "../components/Worker.vue";
+import TownWorkers from "../components/TownWorkers.vue";
+import Plantzone from "../components/Plantzone.vue";
+import { formatFixed, randBetween, levelup } from "../util.js";
+import ModalDialog from "../components/ModalDialog.vue";
 import MapSelectedInfo from "../components/MapSelectedInfo.vue";
-import EmpireOverview from '../components/EmpireOverview.vue'
-import SearchBar from '../components/SearchBar.vue'
-import ItemIcon from '../components/lo/ItemIcon.vue'
+import EmpireOverview from "../components/EmpireOverview.vue";
+import SearchBar from "../components/SearchBar.vue";
+import ItemIcon from "../components/lo/ItemIcon.vue";
 import { ref, nextTick, defineAsyncComponent } from "vue";
+import { localizedAsyncComponent } from "../i18n/asyncComponent";
 
-const WorkerEdit = defineAsyncComponent(() => import('../components/WorkerEdit.vue'))
-const WorkerSendSelection = defineAsyncComponent(() => import('../components/WorkerSendSelection.vue'))
-const LodgingSelection = defineAsyncComponent(() => import('../components/LodgingSelection.vue'))
-const HousesSelection = defineAsyncComponent(() => import('../components/HousesSelection.vue'))
-const NodeMap = defineAsyncComponent(() => import('../components/NodeMap.vue'))
-const FloatingResourceEdit = defineAsyncComponent(() => import('../components/FloatingResourceEdit.vue'))
-const WorkerSelection = defineAsyncComponent(() => import('../components/WorkerSelection.vue'))
-
+const WorkerEdit = localizedAsyncComponent(() =>
+  import("../components/WorkerEdit.vue"), ["research"]
+);
+const WorkerSendSelection = defineAsyncComponent(() =>
+  import("../components/WorkerSendSelection.vue")
+);
+const LodgingSelection = defineAsyncComponent(() =>
+  import("../components/LodgingSelection.vue")
+);
+const HousesSelection = defineAsyncComponent(() =>
+  import("../components/HousesSelection.vue")
+);
+const NodeMap = defineAsyncComponent(() => import("../components/NodeMap.vue"));
+const FloatingResourceEdit = localizedAsyncComponent(() =>
+  import("../components/FloatingResourceEdit.vue"), ["research"]
+);
+const WorkerSelection = defineAsyncComponent(() =>
+  import("../components/WorkerSelection.vue")
+);
 
 export default {
   setup() {
-    const gameStore = useGameStore()
-    const userStore = useUserStore()
-    const routingStore = useRoutingStore()
-    const marketStore = useMarketStore()
-    const mapStore = useMapStore()
+    const gameStore = useGameStore();
+    const userStore = useUserStore();
+    const routingStore = useRoutingStore();
+    const marketStore = useMarketStore();
+    const mapStore = useMapStore();
+    const uiActions = useUiActionsStore();
 
     /*userStore.$subscribe((mutation, state) => {
       const start = Date.now()
@@ -41,11 +55,18 @@ export default {
       console.log('userStore subscription took', Date.now()-start, 'ms')
     })*/
 
-    return { gameStore, userStore, routingStore, marketStore, mapStore }
+    return {
+      gameStore,
+      userStore,
+      routingStore,
+      marketStore,
+      mapStore,
+      uiActions,
+    };
   },
-  
+
   components: {
-    LocalizedFileInput,
+    ImportPreview,
     draggable,
     ItemIcon,
     Worker,
@@ -94,24 +115,25 @@ export default {
     prerelease_zerocost: true,
     prerelease_colorGoblins: false,
     showSearchBar: false,
+    mobilePane: "map",
+    onboardingDismissed: false,
     highlightNodes: new Set([]),
   }),
 
   created() {
-    console.log('addEventListener')
+    console.log("addEventListener");
     window.addEventListener("keydown", this.onKeydown);
   },
 
   watch: {
+    clickedNode(value) {
+      if (value) this.mobilePane = "details";
+    },
   },
 
-  computed: {
-    
-  },
+  computed: {},
 
-  mounted() {
-    
-  },
+  mounted() {},
   beforeUnmount() {
     window.removeEventListener("keydown", this.onKeydown);
   },
@@ -122,216 +144,238 @@ export default {
     levelup,
 
     onKeydown(event) {
-      if (event.ctrlKey && event.code === "KeyF") {
-        event.preventDefault()
-        this.showSearchBar = true
-        nextTick(() => this.$refs.searchBar.focusInput())
+      if ((event.ctrlKey || event.metaKey) && event.code === "KeyF") {
+        event.preventDefault();
+        this.showSearchBar = true;
+        nextTick(() => this.$refs.searchBar.focusInput());
       }
       if (event.key === "Escape") {
-        if (this.showSearchBar) this.showSearchBar = false
-        else this.handleSearchSelection(new Set([]))
+        if (this.showSearchBar) this.showSearchBar = false;
+        else this.handleSearchSelection(new Set([]));
       }
     },
     handleSearchSelection(pzkList) {
       //console.log("highlight", pzkList)
-      this.highlightNodes = pzkList
-      
+      this.highlightNodes = pzkList;
+
       nextTick(() => {
-        this.$refs.nodeMap?.updateLayers()
+        this.$refs.nodeMap?.updateLayers();
         if (pzkList.size > 0) {
-          let x1 = 1e99
-          let y1 = 1e99
-          let x2 = -1e99
-          let y2 = -1e99
-          pzkList.forEach(pzk => {
-            x1 = Math.min(x1, this.gameStore.nodes[pzk].pos.x)
-            y1 = Math.min(y1, this.gameStore.nodes[pzk].pos.z)
-            x2 = Math.max(x2, this.gameStore.nodes[pzk].pos.x)
-            y2 = Math.max(y2, this.gameStore.nodes[pzk].pos.z)
-          })
-          this.$refs.nodeMap?.panToBbox(x1, x2, y1, y2)
+          let x1 = 1e99;
+          let y1 = 1e99;
+          let x2 = -1e99;
+          let y2 = -1e99;
+          pzkList.forEach((pzk) => {
+            x1 = Math.min(x1, this.gameStore.nodes[pzk].pos.x);
+            y1 = Math.min(y1, this.gameStore.nodes[pzk].pos.z);
+            x2 = Math.max(x2, this.gameStore.nodes[pzk].pos.x);
+            y2 = Math.max(y2, this.gameStore.nodes[pzk].pos.z);
+          });
+          this.$refs.nodeMap?.panToBbox(x1, x2, y1, y2);
         }
-      })
-      this.showSearchBar = false
+      });
+      this.showSearchBar = false;
     },
 
     hireWorker(tk) {
-      const w = this.userStore.useDefaultWorker ? {...this.userStore.defaultWorker, tnk: this.gameStore.tk2tnk(tk)} : this.hireRandomArtGob(tk)
-      console.log('w', w)
-      this.userStore.userWorkers.push(w)
+      const w = this.userStore.useDefaultWorker
+        ? { ...this.userStore.defaultWorker, tnk: this.gameStore.tk2tnk(tk) }
+        : this.hireRandomArtGob(tk);
+      console.log("w", w);
+      this.userStore.userWorkers.push(w);
     },
 
     hireRandomArtGob(tk) {
-      const label = this.userStore.newWorkerName(tk)
-      const charkey = 7572
+      const label = this.userStore.newWorkerName(tk);
+      const charkey = 7572;
       let w = {
         tk,
         tnk: this.gameStore.tk2tnk(tk),
         charkey,
         label,
         level: 1,
-        wspdSheet: this.gameStore.workerStatic[charkey].wspd / 1E6,
+        wspdSheet: this.gameStore.workerStatic[charkey].wspd / 1e6,
         mspdSheet: this.gameStore.workerStatic[charkey].mspd / 100,
-        luckSheet: this.gameStore.workerStatic[charkey].luck / 1E4,
+        luckSheet: this.gameStore.workerStatic[charkey].luck / 1e4,
         skills: [],
         job: null,
-      }
+      };
 
-      w.skills.push(this.gameStore.randomSkill(w.skills))
-      
-      levelup(this.gameStore, w, 40)
-      w.wspdSheet = Math.round(w.wspdSheet * 100) / 100
-      w.mspdSheet = Math.round(w.mspdSheet * 100) / 100
-      w.luckSheet = Math.round(w.luckSheet * 100) / 100
+      w.skills.push(this.gameStore.randomSkill(w.skills));
 
-      return w
+      levelup(this.gameStore, w, 40);
+      w.wspdSheet = Math.round(w.wspdSheet * 100) / 100;
+      w.mspdSheet = Math.round(w.mspdSheet * 100) / 100;
+      w.luckSheet = Math.round(w.luckSheet * 100) / 100;
+
+      return w;
     },
-    
+
     fireWorker(who) {
-      this.userStore.userWorkers = this.userStore.userWorkers.filter(w => w != who)
+      this.uiActions.perform(["userWorkers"], (state) => {
+        state.userWorkers = state.userWorkers.filter((w) => w !== who);
+      });
     },
 
     sendWorker(worker) {
-      const stats = this.gameStore.workerStatsOnPlantzone(worker)
-      this.sendDialogWorker = worker
-      this.sendDialogVisible = true
+      const stats = this.gameStore.workerStatsOnPlantzone(worker);
+      this.sendDialogWorker = worker;
+      this.sendDialogVisible = true;
     },
 
     unsendWorker(worker) {
-      worker.job = null
+      worker.job = null;
     },
 
     editWorker(w) {
-      this.workerEditing = w
-      this.workerEditingInitial = JSON.parse(JSON.stringify(w))
-      this.workerEditingInitialProfit = w && w.job && typeof(w.job) == 'number' ? this.routingStore.pzJobs[this.workerEditing.job].profit.priceDaily : 0
-      this.workerDialogVisible = true
+      this.workerEditing = w;
+      this.workerEditingInitial = JSON.parse(JSON.stringify(w));
+      this.workerEditingInitialProfit =
+        w && w.job && typeof w.job == "number"
+          ? this.routingStore.pzJobs[this.workerEditing.job].profit.priceDaily
+          : 0;
+      this.workerDialogVisible = true;
     },
 
     hireAll() {
       for (const tk of Object.keys(this.gameStore.lodgingPerTown)) {
-        const slotsHere = this.userStore.townFreeLodgingCount(tk)
+        const slotsHere = this.userStore.townFreeLodgingCount(tk);
         for (let i = 0; i < slotsHere; i++) {
-          this.hireWorker(tk)
+          this.hireWorker(tk);
         }
       }
     },
 
     fireAll() {
-      this.userStore.userWorkers = []
+      if (!this.userStore.userWorkers.length) return;
+      this.uiActions.request(
+        "Remove all {count} workers?",
+        { count: this.userStore.userWorkers.length },
+        ["userWorkers"],
+        (state) => {
+          state.userWorkers = [];
+        }
+      );
     },
 
     selectLodging(tk) {
-      this.lodgingDialogTown = tk
-      this.lodgingDialogData = this.gameStore.lodgingPerTown[tk]
-      this.lodgingDialogVisible = true
+      this.lodgingDialogTown = tk;
+      this.lodgingDialogData = this.gameStore.lodgingPerTown[tk];
+      this.lodgingDialogVisible = true;
     },
 
     selectHouses(tk) {
-      this.housesDialogTown = tk
-      this.housesDialogVisible = true
-      console.log('housesDialogVisible')
+      this.housesDialogTown = tk;
+      this.housesDialogVisible = true;
+      console.log("housesDialogVisible");
     },
 
     selectWorker(hk) {
-      this.selectWorkerHouseKey = hk
-      this.selectWorkerDialogVisible = true
-      console.log('selectWorkerDialogVisible')
+      this.selectWorkerHouseKey = hk;
+      this.selectWorkerDialogVisible = true;
+      console.log("selectWorkerDialogVisible");
     },
 
-    fileImport(event) {
-      if (!event) return
-      const fileList = event.target[0].files
-      if (fileList.length < 1) return
-      const file = fileList[0]
-      console.log('fileImport', file)
-      const reader = new FileReader()
-      reader.onload = this.fileParse
-      reader.readAsText(file)
-    },
-
-    fileParse(event) {
-      let str = event.target.result
-      let json = JSON.parse(str)
-      
+    prepareImport(json) {
       // Remove workers with unknown charkeys
       for (let i = json.userWorkers.length - 1; i >= 0; i--) {
-        const charkey = json.userWorkers[i].charkey
+        const charkey = json.userWorkers[i].charkey;
         if (!(charkey in this.gameStore.workerStatic)) {
-          console.log(`unknown charkey ${charkey} - discarded`)
-          json.userWorkers.splice(i, 1)
+          console.log(`unknown charkey ${charkey} - discarded`);
+          json.userWorkers.splice(i, 1);
         }
       }
 
+      // Work on a preview copy; no live settings change until confirmation.
+      json.userWorkshops =
+        json.userWorkshops ||
+        JSON.parse(JSON.stringify(this.userStore.userWorkshops));
       // migrate from old formats
-      json.userWorkers.forEach(w => {
+      json.userWorkers.forEach((w) => {
         // remove unused values
-        delete w.tk
-        const stat = this.gameStore.workerStatic[w.charkey]
+        delete w.tk;
+        const stat = this.gameStore.workerStatic[w.charkey];
         // convert sheetStats to lvlupStats
-        if ('wspdLvlup' in w) {
-          const wspdSheet = (stat.wspd + w.wspdLvlup)/1E6
-          w.wspdSheet = Math.round(wspdSheet*100)/100
-          delete w.wspdLvlup
+        if ("wspdLvlup" in w) {
+          const wspdSheet = (stat.wspd + w.wspdLvlup) / 1e6;
+          w.wspdSheet = Math.round(wspdSheet * 100) / 100;
+          delete w.wspdLvlup;
         }
-        if ('mspdLvlup' in w) {
-          const mspdSheet = stat.mspd/100 * (1 + w.mspdLvlup/1E6)
-          w.mspdSheet = Math.round(mspdSheet*100)/100
-          delete w.mspdLvlup
+        if ("mspdLvlup" in w) {
+          const mspdSheet = (stat.mspd / 100) * (1 + w.mspdLvlup / 1e6);
+          w.mspdSheet = Math.round(mspdSheet * 100) / 100;
+          delete w.mspdLvlup;
         }
-        if ('mspdBase' in w) {
-          delete w.mspdBase
+        if ("mspdBase" in w) {
+          delete w.mspdBase;
         }
-        if ('luckLvlup' in w) {
-          const luckSheet = (stat.luck + w.luckLvlup)/1E4
-          w.luckSheet = Math.round(luckSheet*100)/100
-          delete w.luckLvlup
+        if ("luckLvlup" in w) {
+          const luckSheet = (stat.luck + w.luckLvlup) / 1e4;
+          w.luckSheet = Math.round(luckSheet * 100) / 100;
+          delete w.luckLvlup;
         }
         // create missing workshop entries
         if (this.gameStore.jobIsWorkshop(w.job)) {
-          if (!(w.job.hk in this.userStore.userWorkshops)) {
-            this.userStore.userWorkshops[w.job.hk] = { ...this.userStore.defaultUserWorkshop }
-            console.log(`userWorkshop #${w.job.hk} not set, using default`)
+          if (!(w.job.hk in json.userWorkshops)) {
+            json.userWorkshops[w.job.hk] = {
+              ...this.userStore.defaultUserWorkshop,
+            };
+            console.log(`userWorkshop #${w.job.hk} not set, using default`);
           }
         }
         // update from number format
-        if (typeof(w.job) == 'number') {
-          const pzk = w.job
-          w.job = { kind: 'plantzone', pzk, storage: w.tnk }
+        if (typeof w.job == "number") {
+          const pzk = w.job;
+          w.job = { kind: "plantzone", pzk, storage: w.tnk };
         }
         // remove jobs at unknown pzk's
-        if (this.gameStore.jobIsPz(w.job) && !(w.job.pzk in this.gameStore.plantzones)) {
-          console.log(`removing plantzone job of worker ${w.label}: unknown pzk`, w.job)
-          w.job = null
+        if (
+          this.gameStore.jobIsPz(w.job) &&
+          !(w.job.pzk in this.gameStore.plantzones)
+        ) {
+          console.log(
+            `removing plantzone job of worker ${w.label}: unknown pzk`,
+            w.job
+          );
+          w.job = null;
         }
         // update custom job format
         if (Array.isArray(w.job)) {
-          w.job = { kind: 'custom', profit: w.job[1], cp: w.job[2], label: w.job[3]}
+          w.job = {
+            kind: "custom",
+            profit: w.job[1],
+            cp: w.job[2],
+            label: w.job[3],
+          };
         }
-      })
-      
-      console.log('import parsed')
+      });
 
+      return json;
+    },
+
+    applyImport(json) {
       // Replace provided state fields, including empty maps, in one update.
-      if (Object.prototype.hasOwnProperty.call(json, 'optimizerPlan')) {
-        const optimizer = useOptimizerStore()
-        optimizer.stop()
-        optimizer.result = null
-        optimizer.draftOptions = null
-        optimizer.lastOptions = json.optimizerPlan?.optimizationOptions || null
+      if (Object.prototype.hasOwnProperty.call(json, "optimizerPlan")) {
+        const optimizer = useOptimizerStore();
+        optimizer.stop();
+        optimizer.result = null;
+        optimizer.draftOptions = null;
+        optimizer.lastOptions = json.optimizerPlan?.optimizationOptions || null;
       }
-      this.userStore.$patch(state => {
-        for (const [key, value] of Object.entries(json)) state[key] = value
-        if (Object.prototype.hasOwnProperty.call(json, 'optimizerPlan')) state.optimizerUndo = json.optimizerUndo || null
-      })
-        
-      console.log('import done')
-      this.importDialogVisible = false
+      const fields = [...new Set([...Object.keys(json), "optimizerUndo"])];
+      this.uiActions.perform(fields, (state) => {
+        for (const [key, value] of Object.entries(json)) state[key] = value;
+        if (Object.prototype.hasOwnProperty.call(json, "optimizerPlan"))
+          state.optimizerUndo = json.optimizerUndo || null;
+      });
+
+      console.log("import done");
+      this.importDialogVisible = false;
     },
 
     fileExport() {
-      var a = document.createElement("a")
-      let out = { 
+      var a = document.createElement("a");
+      let out = {
         activateAncado: this.userStore.activateAncado,
         lodgingP2W: this.userStore.lodgingP2W,
         lodgingTaken: this.userStore.lodgingTaken,
@@ -348,50 +392,53 @@ export default {
         farmingProfit: this.userStore.farmingProfit,
         farmingBareProfit: this.userStore.farmingBareProfit,
         grindTakenList: this.userStore.grindTakenList,
-      } 
-      const str = JSON.stringify(out)
-      var file = new Blob([str], {type: 'text/plain'});
+      };
+      const str = JSON.stringify(out);
+      var file = new Blob([str], { type: "text/plain" });
       a.href = URL.createObjectURL(file);
-      a.download = 'user.json';
+      a.download = "user.json";
       a.click();
     },
 
     log(s) {
-      console.log(s)
+      console.log(s);
     },
 
     showResourceDialog(pzk) {
-      this.resourceDialogVisible = true
-      this.resourceDialogRgroup = this.gameStore.plantzoneStatic[pzk].regiongroup
-      this.resourceDialogWkld = this.gameStore.plantzones[pzk].peg.time
-      this.resourceDialogWspd = this.userStore.workedPlantzones.has(String(pzk)) ? this.routingStore.pzJobs[pzk].worker.wspdSheet + this.gameStore.wspdBonus(this.routingStore.pzJobs[pzk].worker, 'farm') : 150
+      this.resourceDialogVisible = true;
+      this.resourceDialogRgroup =
+        this.gameStore.plantzoneStatic[pzk].regiongroup;
+      this.resourceDialogWkld = this.gameStore.plantzones[pzk].peg.time;
+      this.resourceDialogWspd = this.userStore.workedPlantzones.has(String(pzk))
+        ? this.routingStore.pzJobs[pzk].worker.wspdSheet +
+          this.gameStore.wspdBonus(this.routingStore.pzJobs[pzk].worker, "farm")
+        : 150;
     },
 
     panToHash() {
       if (this.$route.hash) {
-        this.panToPzk = this.$route.hash.replace("#node", "")
+        this.panToPzk = this.$route.hash.replace("#node", "");
       }
     },
 
     panToPaPos(pos) {
-      this.panPaPos = pos
+      this.panPaPos = pos;
     },
 
     setClickedNode(n) {
-      this.clickedNode = n
+      this.clickedNode = n;
     },
-
   },
 
   mounted() {
-    this.panToHash()
+    this.panToHash();
   },
-
-}
+};
 </script>
 
 <template>
-  <ModalDialog v-model:show="workerDialogVisible">
+  <ModalDialog v-model:show="workerDialogVisible" :title="$t('worker')">
+    <p class="help-text">{{ $t("Changes here are saved immediately.") }}</p>
     <WorkerEdit
       :workerEditing="workerEditing"
       :workerInitial="workerEditingInitial"
@@ -429,11 +476,14 @@ export default {
     />
   </ModalDialog>
 
-  <ModalDialog v-model:show="importDialogVisible">
-    <form @submit.prevent="fileImport($event)">
-      <LocalizedFileInput accept=".json" />
-      <button>{{ $t('import') }}</button><br />
-    </form>
+  <ModalDialog v-model:show="importDialogVisible" :title="$t('Import preview')">
+    <ImportPreview
+      v-if="importDialogVisible"
+      kind="empire"
+      :prepare="prepareImport"
+      :apply-import="applyImport"
+      @done="importDialogVisible = false"
+    />
   </ModalDialog>
 
   <ModalDialog v-model:show="resourceDialogVisible">
@@ -444,7 +494,7 @@ export default {
       v-model:show="resourceDialogVisible"
     />
     <div style="width: 24em">
-      {{ $t('Test with workspeed:') }}
+      {{ $t("Test with workspeed:") }}
       <input
         type="range"
         class="vmid"
@@ -457,8 +507,60 @@ export default {
     </div>
   </ModalDialog>
 
-  <main>
-    <div id="canvas-limiter">
+  <main class="home">
+    <div class="home-toolbar">
+      <SearchBar ref="searchBar" @select="handleSearchSelection" />
+      <div class="mobile-panes" :aria-label="$t('Map')">
+        <button
+          :class="{ primary: mobilePane === 'map' }"
+          :aria-pressed="mobilePane === 'map'"
+          @click="mobilePane = 'map'"
+        >
+          {{ $t("Map") }}
+        </button>
+        <button
+          :class="{ primary: mobilePane === 'workers' }"
+          :aria-pressed="mobilePane === 'workers'"
+          @click="mobilePane = 'workers'"
+        >
+          {{ $t("Worker list") }}
+        </button>
+        <button
+          :class="{ primary: mobilePane === 'details' }"
+          :aria-pressed="mobilePane === 'details'"
+          :disabled="!clickedNode"
+          @click="mobilePane = 'details'"
+        >
+          {{ $t("Node details") }}
+        </button>
+      </div>
+    </div>
+    <section
+      v-if="!userStore.countWorkers && !onboardingDismissed"
+      class="onboarding"
+    >
+      <button
+        class="onboarding-close"
+        :aria-label="$t('Close')"
+        @click="onboardingDismissed = true"
+      >
+        {{ $t("Close") }}
+      </button>
+      <h2>{{ $t("Plan your worker empire") }}</h2>
+      <p class="help-text">
+        {{
+          $t(
+            "Choose your server and tax, then import workers or start an optimization."
+          )
+        }}
+      </p>
+      <div class="ui-actions">
+        <RouterLink to="/settings">{{ $t("Basic settings") }}</RouterLink>
+        <button @click="importDialogVisible = true">{{ $t("import") }}</button>
+        <RouterLink to="/optimizer">{{ $t("帝国优化") }}</RouterLink>
+      </div>
+    </section>
+    <div id="canvas-limiter" :class="'pane-' + mobilePane">
       <NodeMap
         ref="nodeMap"
         v-model:clickedObj="clickedNode"
@@ -470,7 +572,7 @@ export default {
       />
 
       <div class="topcenter" v-if="userStore.error">
-        {{ $t('ERROR:') }} {{ $t(userStore.error) }}
+        {{ $t("ERROR:") }} {{ $t(userStore.error) }}
       </div>
 
       <div
@@ -480,7 +582,7 @@ export default {
       >
         {{ hoverInfo.object.key }}
         {{ gameStore.uloc.node[hoverInfo.object.key] }}
-        {{ hoverInfo.object.thisCpCost }}{{ $t('CP') }}
+        {{ hoverInfo.object.thisCpCost }}{{ $t("CP") }}
         <span v-if="hoverInfo.object.key in this.gameStore.plantzones">
           <ItemIcon
             v-for="k in this.gameStore.plantzones[hoverInfo.object.key]
@@ -491,7 +593,7 @@ export default {
         <span
           v-if="this.gameStore.townsConnectionRoots.has(hoverInfo.object.key)"
         >
-          <br />{{ $t('[town') }}
+          <br />{{ $t("[town") }}
           {{ this.gameStore._tnk2tk[hoverInfo.object.key] }}]
         </span>
         <br />
@@ -500,7 +602,7 @@ export default {
 
       <div id="topleft">
         <details>
-          <summary>{{ $t('Empire') }}</summary>
+          <summary>{{ $t("Empire") }}</summary>
           <EmpireOverview @panToPaPos="panToPaPos" />
         </details>
       </div>
@@ -521,20 +623,13 @@ export default {
       </div>
 
       <div id="rightside">
-        <search-bar
-          ref="searchBar"
-          :visible="showSearchBar"
-          @close="showSearchBar = false"
-          @select="handleSearchSelection"
-        />
-
         <div id="totals">
           <details>
             <summary>
-              {{ $t('Total workers:') }} {{ userStore.countWorkers }}
+              {{ $t("Total workers:") }} {{ userStore.countWorkers }}
             </summary>
             <p class="fsxs">
-              {{ $t('nodes:') }} {{ userStore.workedPlantzones.size }} <br />
+              {{ $t("nodes:") }} {{ userStore.workedPlantzones.size }} <br />
 
               <template v-if="userStore.workersFarmingCount">
                 <template v-if="!userStore.farmingEnable">
@@ -564,27 +659,27 @@ export default {
                     >⚠️</abbr
                   >
                 </template>
-                {{ $t('farming:') }} {{ userStore.workersFarmingCount }} <br />
+                {{ $t("farming:") }} {{ userStore.workersFarmingCount }} <br />
               </template>
 
               <template v-if="userStore.workersWorkshopCount">
-                {{ $t('workshops:') }} {{ userStore.workersWorkshopCount }}
+                {{ $t("workshops:") }} {{ userStore.workersWorkshopCount }}
                 <br />
               </template>
 
               <template v-if="userStore.workersCustomCount">
-                {{ $t('custom:') }} {{ userStore.workersCustomCount }} <br />
+                {{ $t("custom:") }} {{ userStore.workersCustomCount }} <br />
               </template>
 
               <template v-if="userStore.workersIdleCount">
-                {{ $t('⚠️ idle:') }} {{ userStore.workersIdleCount }}
+                {{ $t("⚠️ idle:") }} {{ userStore.workersIdleCount }}
               </template>
             </p>
           </details>
 
           <details>
             <summary>
-              {{ $t('Total CP:') }} {{ formatFixed(userStore.totalCP) }}
+              {{ $t("Total CP:") }} {{ formatFixed(userStore.totalCP) }}
             </summary>
             <p class="fsxs">
               <draggable v-model="userStore.linkOrder" itemKey="id">
@@ -592,17 +687,17 @@ export default {
                   <div class="draggable">
                     {{ index + 1 }}.
                     <template v-if="element.name == 'grind'">
-                      {{ $t('invested for droprate:') }}
+                      {{ $t("invested for droprate:") }}
                       <abbr class="tooltip" :title="userStore.grindTakenDesc">
                         {{ routingStore.routing.autotakenGrindNodesCP }} </abbr
                       ><br />
                     </template>
                     <template v-else-if="element.name == 'worker'">
-                      {{ $t('nodes:') }}
+                      {{ $t("nodes:") }}
                       {{ routingStore.routing.autotakenWorkerNodesCP }} <br />
                     </template>
                     <template v-else-if="element.name == 'wagon'">
-                      {{ $t('wagon routes:') }}
+                      {{ $t("wagon routes:") }}
                       <abbr
                         class="tooltip"
                         :title="
@@ -622,41 +717,47 @@ export default {
                   </div>
                 </template>
               </draggable>
-              {{ $t('Housing and reserved houses:') }} {{ Number.isFinite(userStore.lodgage) ? userStore.lodgage : $t('Calculating housing') }} <br />
+              {{ $t("Housing and reserved houses:") }}
+              {{
+                Number.isFinite(userStore.lodgage)
+                  ? userStore.lodgage
+                  : $t("Calculating housing")
+              }}
+              <br />
 
               <template v-if="userStore.farmingEnable">
-                {{ $t('farming:') }} {{ userStore.farmingCP }} <br />
+                {{ $t("farming:") }} {{ userStore.farmingCP }} <br />
               </template>
 
               <template v-if="userStore.workersWorkshopCount">
-                {{ $t('workshops:') }}
+                {{ $t("workshops:") }}
                 {{ formatFixed(userStore.workshopTotalCP) }} <br />
               </template>
 
               <template v-if="userStore.workersCustomCount">
-                {{ $t('custom:') }} {{ userStore.customTotalCP }} <br />
+                {{ $t("custom:") }} {{ userStore.customTotalCP }} <br />
               </template>
             </p>
           </details>
 
           <details>
             <summary>
-              {{ $t('Total M$/day:') }}
+              {{ $t("Total M$/day:") }}
               {{ formatFixed(userStore.allJobsTotalDailyProfit, 2) }}
             </summary>
             <p class="fsxs">
-              {{ $t('nodes:') }}
+              {{ $t("nodes:") }}
               {{ formatFixed(userStore.pzJobsTotalDailyProfit, 2) }} <br />
               <template v-if="userStore.workersFarmingCount">
-                {{ $t('farming:') }}
+                {{ $t("farming:") }}
                 {{ formatFixed(userStore.farmingTotalProfit, 2) }} <br />
               </template>
               <template v-if="userStore.workersWorkshopCount">
-                {{ $t('workshops:') }}
+                {{ $t("workshops:") }}
                 {{ formatFixed(userStore.workshopTotalProfit, 2) }} <br />
               </template>
               <template v-if="userStore.workersCustomCount">
-                {{ $t('custom:') }}
+                {{ $t("custom:") }}
                 {{ formatFixed(userStore.customTotalProfit, 2) }} <br />
               </template>
             </p>
@@ -664,25 +765,25 @@ export default {
 
           <details>
             <summary>
-              {{ $t('Total efficiency:') }}
+              {{ $t("Total efficiency:") }}
               {{ formatFixed(userStore.allJobsDailyProfitPerCp, 3) }}
             </summary>
-            {{ $t('(M$/day/CP)') }}
+            {{ $t("(M$/day/CP)") }}
             <p class="fsxs">
-              {{ $t('nodes:') }}
+              {{ $t("nodes:") }}
               {{ formatFixed(userStore.pzJobsDailyProfitPerCp, 3) }} <br />
               <template v-if="userStore.farmingEnable">
-                {{ $t('farming:') }}
+                {{ $t("farming:") }}
                 {{ formatFixed(userStore.farmingJobsDailyProfitPerCp, 3) }}
                 <br />
               </template>
               <template v-if="userStore.workersWorkshopCount">
-                {{ $t('workshops:') }}
+                {{ $t("workshops:") }}
                 {{ formatFixed(userStore.workshopJobsDailyProfitPerCp, 3) }}
                 <br />
               </template>
               <template v-if="userStore.workersCustomCount">
-                {{ $t('custom:') }}
+                {{ $t("custom:") }}
                 {{ formatFixed(userStore.customJobsDailyProfitPerCp, 3) }}
                 <br />
               </template>
@@ -695,10 +796,10 @@ export default {
             v-model="userStore.wasmRouting"
             :disabled="gameStore.wasmLoading"
           />
-          <label for="wr_cb"> {{ $t('wasm routing') }}</label
+          <label for="wr_cb"> {{ $t("wasm routing") }}</label
           ><br />
           <span v-if="gameStore.wasmLoading">{{
-            $t('Loading route planner…')
+            $t("Loading route planner…")
           }}</span>
           <span v-if="gameStore.wasmError" role="alert">{{
             $t(gameStore.wasmError)
@@ -731,16 +832,16 @@ export default {
         <div style="clear: both"></div>
 
         <div id="workerlist">
-          <details>
-            <summary>{{ $t('All towns/workers list') }}</summary>
-            {{ $t('show:') }}
+          <details :open="mobilePane === 'workers' || undefined">
+            <summary>{{ $t("All towns/workers list") }}</summary>
+            {{ $t("show:") }}
             <label class="switch mauto">
               <input type="checkbox" v-model="userStore.displayWorkerNames" />
-              <span class="slider"></span> {{ $t('wrkr names') }}
+              <span class="slider"></span> {{ $t("wrkr names") }}
             </label>
             <label class="switch mauto">
               <input type="checkbox" v-model="userStore.displayNodeParent" />
-              <span class="slider"></span> {{ $t('parent node') }}
+              <span class="slider"></span> {{ $t("parent node") }}
             </label>
             <label class="switch mauto">
               <input
@@ -748,7 +849,7 @@ export default {
                 v-model="userStore.displayWorkerStatsRank"
                 :disabled="userStore.displayWorkerStatsForPz"
               />
-              <span class="slider"></span> {{ $t('stat ranks') }}
+              <span class="slider"></span> {{ $t("stat ranks") }}
             </label>
             <label class="switch mauto">
               <input
@@ -756,34 +857,46 @@ export default {
                 v-model="userStore.displayWorkerStatsForPz"
                 :disabled="userStore.displayWorkerStatsRank"
               />
-              <span class="slider"></span> {{ $t('stats after skills') }}
+              <span class="slider"></span> {{ $t("stats after skills") }}
             </label>
             <label class="switch mauto">
               <input type="checkbox" v-model="userStore.displayProfitPerCp" />
-              <span class="slider"></span> {{ $t('efficiency') }}
+              <span class="slider"></span> {{ $t("efficiency") }}
             </label>
 
             <button @click="importDialogVisible = true">
-              {{ $t('import') }}
+              {{ $t("import") }}
             </button>
-            <button @click="fileExport()">{{ $t('export') }}</button>
-            <button v-if="0" @click="hireAll()">{{ $t('hire all') }}</button>
-            <button @click="fireAll()">{{ $t('fire all') }}</button>
+            <button @click="fileExport()">{{ $t("export") }}</button>
+            <button v-if="0" @click="hireAll()">{{ $t("hire all") }}</button>
+            <button
+              class="danger"
+              :disabled="!userStore.userWorkers.length"
+              @click="fireAll()"
+            >
+              {{ $t("fire all") }}
+            </button>
 
-            <table>
-              <template v-for="(o, tk) in gameStore.lodgingPerTown">
-                <TownWorkers
-                  :o="o"
-                  :tk="Number(tk)"
-                  @selectLodging="selectLodging"
-                  @selectHouses="selectHouses"
-                  @hireWorker="hireWorker"
-                  @editWorker="editWorker"
-                  @sendWorker="sendWorker"
-                  @panToPaPos="panToPaPos"
-                />
-              </template>
-            </table>
+            <div
+              class="table-scroll"
+              tabindex="0"
+              :aria-label="$t('Worker list')"
+            >
+              <table>
+                <template v-for="(o, tk) in gameStore.lodgingPerTown" :key="tk">
+                  <TownWorkers
+                    :o="o"
+                    :tk="Number(tk)"
+                    @selectLodging="selectLodging"
+                    @selectHouses="selectHouses"
+                    @hireWorker="hireWorker"
+                    @editWorker="editWorker"
+                    @sendWorker="sendWorker"
+                    @panToPaPos="panToPaPos"
+                  />
+                </template>
+              </table>
+            </div>
           </details>
         </div>
       </div>
@@ -795,7 +908,9 @@ export default {
 main {
   display: flex;
   flex-direction: column;
-  height: 96%;
+  height: calc(100dvh - 90px);
+  min-height: 400px;
+  gap: 0.6rem;
   overflow: hidden;
 }
 summary {
@@ -806,7 +921,8 @@ summary {
   flex-grow: 1;
 }
 #canvas-limiter {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   width: 100%;
   /*display: flex;
   justify-content: space-between;*/
@@ -845,6 +961,7 @@ summary {
   align-items: flex-end;
   float: right;
   max-height: 100%;
+  max-width: 60%;
 }
 #totals {
   padding: 5px;
@@ -858,7 +975,7 @@ summary {
   float: right;
   text-align: right;
   background-color: var(--color-background);
-  
+
   overflow-y: auto;
   /*height: 100px;
   flex: 1 1 auto;*/
@@ -897,5 +1014,106 @@ summary {
   transform: translate(-50%, 0);
   overflow: auto;
 }
+</style>
 
+<style scoped>
+.home-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.mobile-panes {
+  display: none;
+}
+.onboarding {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  background: var(--color-background-soft);
+}
+.onboarding h2 {
+  font-size: 1.1rem;
+}
+.onboarding-close {
+  float: right;
+}
+.onboarding .ui-actions {
+  margin-bottom: 0;
+}
+#workerlist {
+  max-width: 100%;
+}
+#workerlist table {
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .home {
+    height: calc(100dvh - 120px);
+    min-height: 400px;
+  }
+  .home-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  .mobile-panes {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .mobile-panes button {
+    flex: 1;
+  }
+  #canvas-limiter {
+    overflow: hidden;
+  }
+  #rightside {
+    position: absolute;
+    right: 0;
+    top: 0;
+    max-width: 100%;
+  }
+  .pane-map #workerlist,
+  .pane-map #leftside {
+    display: none;
+  }
+  .pane-workers :deep(canvas),
+  .pane-details :deep(canvas) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .pane-workers #rightside {
+    inset: 0;
+    width: 100%;
+    display: block;
+  }
+  .pane-workers #totals,
+  .pane-workers #topleft,
+  .pane-workers #leftside {
+    display: none;
+  }
+  .pane-workers #workerlist {
+    float: none;
+    text-align: left;
+    height: 100%;
+    overflow: auto;
+    padding: 0.5rem;
+  }
+  .pane-workers #workerlist > details > summary {
+    display: none;
+  }
+  .pane-details #rightside,
+  .pane-details #topleft {
+    display: none;
+  }
+  .pane-details #leftside {
+    inset: 0;
+    max-height: 100%;
+    width: 100%;
+    overflow: auto;
+  }
+  #leftside :deep(.w30em) {
+    max-width: 100%;
+  }
+}
 </style>

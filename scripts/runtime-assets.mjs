@@ -4,6 +4,7 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { DATASET_GROUPS } from '../src/dataLoading.mjs'
 import { createTileCompressor } from './tile-compression.mjs'
+import { localeIds, uiNamespaces } from '../src/i18n/meta.mjs'
 
 export const RUNTIME_FILES = [
   'data/plantzone.json',
@@ -15,6 +16,7 @@ export const RUNTIME_FILES = [
   'data/manual/catches_by_fish.json', 'data/manual/sightings_top_sizes.json',
   'data/encyclopedia.json',
   ...['en', 'jp', 'ko', 'ru', 'tw'].map(language => `data/loc/${language}.json`),
+  ...localeIds.flatMap(language => uiNamespaces.map(group => `data/ui/${language}/${group}.json`)),
 ]
 const directories = ['data/icons/', 'data/maptiles/', 'data/images/']
 

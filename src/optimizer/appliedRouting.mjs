@@ -8,7 +8,7 @@ export function appliedRouting(user, game) {
   const plan = user.optimizerPlan;
   if (
     !plan ||
-    plan.appliedSignature !== configurationSignature(user) ||
+    plan.appliedSignature !== (user.planningConfigurationSignature ?? configurationSignature(user)) ||
     (plan.dataSignature &&
       plan.dataSignature !== planningDataSignature(game)) ||
     (plan.housingDataSignature &&

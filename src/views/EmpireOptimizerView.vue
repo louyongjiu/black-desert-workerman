@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { mergeEmpire } from "../optimizer/application.mjs";
 import WorkshopStorage from "../components/WorkshopStorage.vue";
 import { useGameStore } from "../stores/game";
@@ -20,6 +20,7 @@ import {
   canReplaceGatheringWorkers,
   configurationSignature,
   valuationSignature,
+  optimizationOptionsChanged,
 } from "../optimizer/snapshot.mjs";
 
 const game = useGameStore(),
@@ -71,6 +72,14 @@ const townIds = ref([...(draft.townIds || game.townsWithLodging)]),
   includeGrind = ref(draft.includeGrind ?? true),
   consent = ref(false),
   actionError = ref("");
+const townSelectionOpen = ref(!townIds.value.length);
+watch(
+  townIds,
+  (value) => {
+    if (!value.length) townSelectionOpen.value = true;
+  },
+  { deep: true }
+);
 const now = ref(Date.now());
 const timer = setInterval(() => {
   now.value = Date.now();
@@ -83,7 +92,7 @@ onBeforeUnmount(() => {
 const result = computed(() => optimizer.result || user.optimizerPlan);
 const elapsed = computed(() =>
   optimizer.running
-    ? (now.value - optimizer.startedAt) / 1000
+    ? Math.max(0, (now.value - optimizer.startedAt) / 1000)
     : result.value?.elapsed || 0
 );
 const stages = {
@@ -111,6 +120,17 @@ const valueStale = computed(
     result.value &&
     result.value.valueSignature !== valuationSignature(user, market)
 );
+const optionsStale = computed(() =>
+  optimizationOptionsChanged(result.value, options())
+);
+watch(
+  options,
+  (value) => {
+    optimizer.draftOptions = value;
+    consent.value = false;
+  },
+  { deep: true, immediate: true }
+);
 const canApply = computed(
   () =>
     result.value &&
@@ -118,9 +138,82 @@ const canApply = computed(
     !optimizer.running &&
     !stale.value &&
     !valueStale.value &&
+    !optionsStale.value &&
     !applied.value &&
     canReplaceGatheringWorkers(user)
 );
+const startBlockReason = computed(() => {
+  if (optimizer.running) return "";
+  if (
+    !Number.isInteger(budget.value) ||
+    budget.value < 0 ||
+    budget.value > 2000
+  )
+    return "Enter a whole-number budget from 0 to 2000.";
+  if (!townIds.value.length) return "Select at least one hiring town.";
+  if (market.apiFetching) return "更新价格中…";
+  if (user.wasmRouting && !game.wasmRouter)
+    return "Route planner is still loading; start again when ready";
+  return "";
+});
+const applyBlockReason = computed(() => {
+  if (optimizer.running) return "请等待优化完成或先停止计算";
+  if (!canReplaceGatheringWorkers(user) || result.value?.supported === false)
+    return "This empire contains unsupported active tasks; export a preview instead";
+  if (stale.value) return "当前工人或基础设施设置已变化，请重新优化后应用。";
+  if (valueStale.value)
+    return "价格或资源设置已变化，预览收益和求解差距来自原快照；重新优化可更新方案。";
+  if (optionsStale.value)
+    return "Optimization settings changed. This result uses the previous settings; optimize again before applying.";
+  if (!consent.value)
+    return "Confirm the worker and node changes above before applying.";
+  return "";
+});
+const nodeChanges = computed(() => {
+  const oldNodes = result.value?.comparisonBaseline?.nodeIds;
+  if (!oldNodes) return null;
+  const before = new Set(oldNodes.map(Number)),
+    after = new Set(result.value.selectedNodeIds.map(Number));
+  return {
+    added: [...after].filter((id) => !before.has(id)),
+    removed: [...before].filter((id) => !after.has(id)),
+  };
+});
+const comparison = computed(() => {
+  const baseline = result.value?.comparisonBaseline;
+  if (!baseline) return [];
+  return [
+    {
+      label: "Daily silver · millions",
+      before: baseline.income,
+      after:
+        result.value.totalProfitSilverPerDay == null
+          ? null
+          : result.value.totalProfitSilverPerDay / 1e6,
+    },
+    {
+      label: "Contribution points",
+      before: baseline.cp,
+      after: result.value.totalCP,
+    },
+    {
+      label: "Workers",
+      before: baseline.workers,
+      after:
+        result.value.workers.length +
+        (result.value.retainedWorkers?.length || 0),
+    },
+    {
+      label: "Connected nodes",
+      before: baseline.nodes,
+      after: result.value.selectedNodeIds.length,
+    },
+  ];
+});
+const change = (row) =>
+  Number.isFinite(row.before) && Number.isFinite(row.after)
+    ? (row.after > row.before ? "+" : "") + display(row.after - row.before)
+    : "—";
 const display = (value, digits = 2) =>
   Number.isFinite(value)
     ? value.toLocaleString(locale.value, { maximumFractionDigits: digits })
@@ -311,32 +404,6 @@ function exportPlan() {
             :disabled="optimizer.running"
         /></label>
         <label
-          >{{ $t("计算上限")
-          }}<select
-            v-model.number="timeLimit"
-            :aria-label="$t('计算上限')"
-            :disabled="optimizer.running"
-          >
-            <option :value="10">{{ $t("10 秒") }}</option>
-            <option :value="30">{{ $t("30 秒") }}</option>
-            <option :value="120">{{ $t("2 分钟") }}</option>
-            <option :value="300">{{ $t("5 分钟") }}</option>
-          </select></label
-        >
-        <label
-          >{{ $t("采集点候选")
-          }}<select
-            v-model.number="maxPlantzones"
-            :aria-label="$t('采集点候选')"
-            :disabled="optimizer.running"
-          >
-            <option :value="20">{{ $t("20 个 · 小规模验证") }}</option>
-            <option :value="50">{{ $t("50 个") }}</option>
-            <option :value="100">{{ $t("100 个") }}</option>
-            <option :value="370">{{ $t("全部有有效价格的采集点") }}</option>
-          </select></label
-        >
-        <label
           >{{ $t("产物仓库")
           }}<select
             v-model.number="storageTown"
@@ -353,6 +420,37 @@ function exportPlan() {
           </select></label
         >
       </div>
+      <details class="advanced-settings">
+        <summary>{{ $t("Advanced optimization settings") }}</summary>
+        <div class="controls">
+          <label
+            >{{ $t("计算上限")
+            }}<select
+              v-model.number="timeLimit"
+              :aria-label="$t('计算上限')"
+              :disabled="optimizer.running"
+            >
+              <option :value="10">{{ $t("10 秒") }}</option>
+              <option :value="30">{{ $t("30 秒") }}</option>
+              <option :value="120">{{ $t("2 分钟") }}</option>
+              <option :value="300">{{ $t("5 分钟") }}</option>
+            </select></label
+          >
+          <label
+            >{{ $t("采集点候选")
+            }}<select
+              v-model.number="maxPlantzones"
+              :aria-label="$t('采集点候选')"
+              :disabled="optimizer.running"
+            >
+              <option :value="20">{{ $t("20 个 · 小规模验证") }}</option>
+              <option :value="50">{{ $t("50 个") }}</option>
+              <option :value="100">{{ $t("100 个") }}</option>
+              <option :value="370">{{ $t("全部有有效价格的采集点") }}</option>
+            </select></label
+          >
+        </div>
+      </details>
       <p class="muted">
         {{
           $t(
@@ -367,21 +465,38 @@ function exportPlan() {
           )
         }}
       </p>
-      <p>
-        {{
-          $t(
-            "Workshop workers and idle workers are retained. Only gathering workers are replaced."
-          )
-        }}
-      </p>
-      <p>
-        {{ $t("Retained workshops") }}:
-        {{ retained.filter((w) => w.job).length }} ·
-        {{ $t("Retained workers") }}: {{ retained.length }} ·
-        {{ $t("Idle workers retained") }}:
-        {{ retained.filter((w) => !w.job).length }} ·
-        {{ $t("Retained connection CP") }}: {{ display(fixedConnections) }}
-      </p>
+      <details v-if="retained.length" class="retained-settings">
+        <summary>{{ $t("Retained workers") }} · {{ retained.length }}</summary>
+        <p>
+          {{ $t("Retained workshops") }}:
+          {{ retained.filter((w) => w.job).length }} ·
+          {{ $t("Retained workers") }}: {{ retained.length }} ·
+          {{ $t("Idle workers retained") }}:
+          {{ retained.filter((w) => !w.job).length }} ·
+          {{ $t("Retained connection CP") }}: {{ display(fixedConnections) }}
+        </p>
+        <div v-if="fixedTowns.length" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{{ $t("town") }}</th>
+                <th>{{ $t("Retained workers") }}</th>
+                <th>{{ $t("Total storage demand") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="tk in fixedTowns" :key="tk">
+                <td>{{ game.uloc.town[tk] || tk }}</td>
+                <td>{{ fixedRequirements.workers[tk] || 0 }}</td>
+                <td>
+                  {{ display(fixedRequirements.storage[tk]?.total ?? 0) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <WorkshopStorage />
+      </details>
       <p v-if="!canReplaceGatheringWorkers(user)" class="notice">
         {{
           $t(
@@ -389,41 +504,31 @@ function exportPlan() {
           )
         }}
       </p>
-      <div v-if="fixedTowns.length" class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>{{ $t("town") }}</th>
-              <th>{{ $t("Retained workers") }}</th>
-              <th>{{ $t("Total storage demand") }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="tk in fixedTowns" :key="tk">
-              <td>{{ game.uloc.town[tk] || tk }}</td>
-              <td>{{ fixedRequirements.workers[tk] || 0 }}</td>
-              <td>{{ display(fixedRequirements.storage[tk]?.total ?? 0) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <WorkshopStorage />
-      <fieldset :disabled="optimizer.running">
-        <legend>{{ $t("允许招募工人的城镇") }}</legend>
-        <div class="town-tools">
-          <button @click="townIds = [...game.townsWithLodging]">
-            {{ $t("全部") }}</button
-          ><button @click="townIds = []">{{ $t("清除") }}</button
-          ><span>{{ $t("已选") }} {{ townIds.length }} {{ $t("个") }}</span>
-        </div>
-        <div class="towns">
-          <label v-for="id in game.townsWithLodging" :key="id"
-            ><input v-model="townIds" type="checkbox" :value="id" />{{
-              nodeName(id)
-            }}</label
-          >
-        </div>
-      </fieldset>
+      <details
+        class="town-selection"
+        :open="townSelectionOpen"
+        @toggle="townSelectionOpen = $event.target.open"
+      >
+        <summary>
+          {{ $t("Hiring towns · {count} selected", { count: townIds.length }) }}
+        </summary>
+        <fieldset :disabled="optimizer.running">
+          <legend>{{ $t("允许招募工人的城镇") }}</legend>
+          <div class="town-tools">
+            <button @click="townIds = [...game.townsWithLodging]">
+              {{ $t("全部") }}</button
+            ><button @click="townIds = []">{{ $t("清除") }}</button
+            ><span>{{ $t("已选") }} {{ townIds.length }} {{ $t("个") }}</span>
+          </div>
+          <div class="towns">
+            <label v-for="id in game.townsWithLodging" :key="id"
+              ><input v-model="townIds" type="checkbox" :value="id" />{{
+                nodeName(id)
+              }}</label
+            >
+          </div>
+        </fieldset>
+      </details>
       <label class="check"
         ><input
           v-model="includeGrind"
@@ -433,36 +538,44 @@ function exportPlan() {
         {{ $t("保留并连接当前") }} {{ user.grindTakenList.length }}
         {{ $t("个刷怪节点") }}</label
       >
-      <div class="actions">
-        <button
-          class="primary"
-          :disabled="
-            optimizer.running ||
-            !townIds.length ||
-            market.apiFetching ||
-            (user.wasmRouting && !game.wasmRouter)
-          "
-          @click="start"
+      <div class="run-toolbar">
+        <div class="actions">
+          <button
+            class="primary"
+            :disabled="optimizer.running || Boolean(startBlockReason)"
+            :aria-describedby="
+              startBlockReason ? 'start-block-reason' : undefined
+            "
+            @click="start"
+          >
+            {{ $t("开始优化") }}</button
+          ><button v-if="optimizer.running" @click="optimizer.stop">
+            {{ $t("停止并保留当前方案") }}</button
+          ><button
+            :disabled="market.apiFetching || optimizer.running"
+            @click="reloadPrices"
+          >
+            {{ market.apiFetching ? $t("更新价格中…") : $t("更新价格") }}
+          </button>
+        </div>
+        <p
+          v-if="startBlockReason"
+          id="start-block-reason"
+          role="status"
+          class="help-text"
         >
-          {{ $t("开始优化") }}</button
-        ><button v-if="optimizer.running" @click="optimizer.stop">
-          {{ $t("停止并保留当前方案") }}</button
-        ><button
-          :disabled="market.apiFetching || optimizer.running"
-          @click="reloadPrices"
-        >
-          {{ market.apiFetching ? $t("更新价格中…") : $t("更新价格") }}
-        </button>
+          {{ $t(startBlockReason) }}
+        </p>
+        <p class="muted">
+          {{
+            market.apiDatetime
+              ? $t("价格更新于 {date}", {
+                  date: new Date(market.apiDatetime).toLocaleString(locale),
+                })
+              : $t("使用当前缓存与自定义价格；缺价的采集点会跳过。")
+          }}
+        </p>
       </div>
-      <p class="muted">
-        {{
-          market.apiDatetime
-            ? $t("价格更新于 {date}", {
-                date: new Date(market.apiDatetime).toLocaleString(locale),
-              })
-            : $t("使用当前缓存与自定义价格；缺价的采集点会跳过。")
-        }}
-      </p>
     </section>
     <p v-if="optimizer.error || actionError" class="error" role="alert">
       {{ $t(actionError || optimizer.error) }}
@@ -506,6 +619,56 @@ function exportPlan() {
           ><strong>{{ result.workers.length }}</strong>
         </div>
       </div>
+      <div v-if="comparison.length" class="table-wrap comparison">
+        <h3>{{ $t("Plan comparison") }}</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>{{ $t("Metric") }}</th>
+              <th>{{ $t("Current plan") }}</th>
+              <th>{{ $t("New plan") }}</th>
+              <th>{{ $t("Change") }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in comparison" :key="row.label">
+              <th scope="row">{{ $t(row.label) }}</th>
+              <td>{{ display(row.before) }}</td>
+              <td>{{ display(row.after) }}</td>
+              <td>{{ change(row) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="help-text">
+          {{
+            $t(
+              "Comparison uses the prices and worker assumptions at calculation start."
+            )
+          }}
+        </p>
+      </div>
+      <details v-if="nodeChanges" class="node-changes">
+        <summary>
+          {{ $t("Connected nodes") }} · {{ $t("Added nodes") }}
+          {{ nodeChanges.added.length }} · {{ $t("Removed nodes") }}
+          {{ nodeChanges.removed.length }}
+        </summary>
+        <p>
+          {{ $t("Added nodes") }}:
+          {{ nodeChanges.added.map(nodeName).join(", ") || "—" }}
+        </p>
+        <p>
+          {{ $t("Removed nodes") }}:
+          {{ nodeChanges.removed.map(nodeName).join(", ") || "—" }}
+        </p>
+      </details>
+      <p v-if="Number.isFinite(gap)" class="help-text">
+        {{
+          $t(
+            "The solution gap measures remaining uncertainty about the best possible plan. A time-limited plan may still be improved."
+          )
+        }}
+      </p>
       <p class="muted">
         {{ $t("在") }} {{ result.consideredPlantzones }}
         {{ $t("个采集点候选内优化。") }}{{ result.missingPrices.length }}
@@ -513,6 +676,18 @@ function exportPlan() {
       </p>
       <p v-if="stale" class="error">
         {{ $t("当前工人或基础设施设置已变化，请重新优化后应用。") }}
+      </p>
+      <p
+        v-if="optionsStale"
+        id="apply-options-block-reason"
+        class="notice"
+        role="status"
+      >
+        {{
+          $t(
+            "Optimization settings changed. This result uses the previous settings; optimize again before applying."
+          )
+        }}
       </p>
       <p v-if="valueStale" class="notice">
         {{
@@ -534,6 +709,22 @@ function exportPlan() {
       >
         {{ $t("保存方案的设置已变化，首页已恢复常规路由。") }}
       </p>
+      <label v-if="!applied && canApply" class="check"
+        ><input v-model="consent" type="checkbox" />
+        {{
+          $t(
+            "I confirm replacing gathering workers, retaining workshops and idle workers, and using the listed node changes. This can be undone."
+          )
+        }}</label
+      >
+      <p
+        v-if="!applied && applyBlockReason && !optionsStale"
+        id="apply-block-reason"
+        class="help-text"
+        role="status"
+      >
+        {{ $t(applyBlockReason) }}
+      </p>
       <div class="actions">
         <button
           :disabled="
@@ -554,19 +745,18 @@ function exportPlan() {
           v-if="!applied"
           class="primary"
           :disabled="!canApply || !consent"
+          :aria-describedby="
+            applyBlockReason
+              ? optionsStale
+                ? 'apply-options-block-reason'
+                : 'apply-block-reason'
+              : undefined
+          "
           @click="apply"
         >
           {{ $t("Retain workshops and apply gathering plan") }}</button
         ><span v-else class="success">{{ $t("已保留求解路径") }}</span>
       </div>
-      <label v-if="!applied && canApply" class="check"
-        ><input v-model="consent" type="checkbox" />
-        {{
-          $t(
-            "I confirm replacing gathering workers, retaining workshops and idle workers, and using the listed node changes. This can be undone."
-          )
-        }}</label
-      >
       <svg
         v-if="mapPreview"
         class="map"
@@ -780,7 +970,7 @@ h2 {
 }
 .controls {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 .controls label {
@@ -914,6 +1104,54 @@ details {
   }
   .panel {
     padding: 0.8rem;
+  }
+}
+</style>
+
+<style scoped>
+.advanced-settings,
+.town-selection,
+.retained-settings {
+  margin: 1rem 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.7rem;
+}
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.advanced-settings .controls {
+  margin-top: 1rem;
+}
+.run-toolbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 7;
+  background: var(--color-background);
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--color-border);
+  margin-top: 0.8rem;
+}
+.progress {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 8;
+  border: 1px solid var(--color-border);
+}
+.comparison h3 {
+  font-size: 1rem;
+  margin: 0.7rem 0;
+}
+.comparison table {
+  min-width: 480px;
+}
+@media (max-width: 600px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+  .actions button.primary {
+    flex: 1 1 100%;
   }
 }
 </style>

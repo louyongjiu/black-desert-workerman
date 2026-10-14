@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs",
+    "benchmark:performance": "node scripts/benchmark-performance.mjs",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
   },

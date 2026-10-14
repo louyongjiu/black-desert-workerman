@@ -1,16 +1,15 @@
 <script>
-import {useUserStore} from '../stores/user'
-import {useRoutingStore} from '../stores/routing'
-import {useGameStore} from '../stores/game'
-import {formatFixed} from '../util.js'
-import ItemIcon from '../components/lo/ItemIcon.vue'
-import { ref } from 'vue';
+import { useUserStore } from "../stores/user";
+import { useRoutingStore } from "../stores/routing";
+import { useGameStore } from "../stores/game";
+import { formatFixed } from "../util.js";
+import ItemIcon from "../components/lo/ItemIcon.vue";
 
 export default {
   setup() {
-    const userStore = useUserStore()
-    const routingStore = useRoutingStore()
-    const gameStore = useGameStore()
+    const userStore = useUserStore();
+    const routingStore = useRoutingStore();
+    const gameStore = useGameStore();
 
     /*userStore.$subscribe((mutation, state) => {
       const start = Date.now()
@@ -18,7 +17,7 @@ export default {
       console.log('userStore subscription took', Date.now()-start, 'ms')
     })*/
 
-    return { gameStore, userStore, routingStore }
+    return { gameStore, userStore, routingStore };
   },
 
   props: {
@@ -26,8 +25,8 @@ export default {
     defaultRedirect: Number,
     show: {
       type: Boolean,
-      default: false
-    }
+      default: false,
+    },
   },
 
   components: {
@@ -37,112 +36,169 @@ export default {
   data: () => ({
     customProfit: 0,
     customCP: 0,
-    customLabel: '',
+    customLabel: "",
     selectedRedirect: 1,
   }),
 
-  watch: { 
-    show: function(newVal) {
-      if (newVal) {
-        this.selectedRedirect = this.w.tnk
-      }
+  watch: {
+    show: {
+      immediate: true,
+      handler(value) {
+        if (value) this.resetRedirect();
+      },
+    },
+    w() {
+      if (this.show) this.resetRedirect();
+    },
+    defaultRedirect() {
+      if (this.show) this.resetRedirect();
     },
   },
 
   methods: {
     formatFixed,
+    resetRedirect() {
+      this.selectedRedirect = this.defaultRedirect ?? this.w?.tnk ?? 1;
+    },
     assignWorkerPz(worker, pzk) {
-      console.log('assigning to', this.selectedRedirect)
-      this.userStore.assignWorker(worker, {kind: 'plantzone', pzk, storage: this.selectedRedirect})
-      this.$emit('update:show', false)
+      console.log("assigning to", this.selectedRedirect);
+      this.userStore.assignWorker(worker, {
+        kind: "plantzone",
+        pzk,
+        storage: this.selectedRedirect,
+      });
+      this.$emit("update:show", false);
     },
     assignWorkerFm(worker) {
-      this.userStore.assignWorker(worker, 'farming')
-      this.$emit('update:show', false)
+      this.userStore.assignWorker(worker, "farming");
+      this.$emit("update:show", false);
     },
     assignWorkerCustom(worker) {
-      this.userStore.assignWorker(worker, {kind: 'custom', profit: this.customProfit, cp: this.customCP, 'label': this.customLabel})
-      this.$emit('update:show', false)
+      this.userStore.assignWorker(worker, {
+        kind: "custom",
+        profit: this.customProfit,
+        cp: this.customCP,
+        label: this.customLabel,
+      });
+      this.$emit("update:show", false);
     },
     assignWorkerWorkshop(worker, hk) {
-      this.userStore.assignWorker(worker, {kind: 'workshop', hk, recipe: undefined})
-      this.$emit('update:show', false)
+      this.userStore.assignWorker(worker, {
+        kind: "workshop",
+        hk,
+        recipe: undefined,
+      });
+      this.$emit("update:show", false);
     },
     workshopBusy(hk) {
-      return this.userStore.userWorkers.some(w => w.job && w.job.kind == 'workshop' && w.job.hk == hk)
+      return this.userStore.userWorkers.some(
+        (w) => w.job && w.job.kind == "workshop" && w.job.hk == hk
+      );
     },
   },
 
   computed: {
     thisFarmSelectionEntry() {
-      return this.gameStore.farmSelectionEntry(this.gameStore.tnk2tk(this.w.tnk))
+      return this.gameStore.farmSelectionEntry(
+        this.gameStore.tnk2tk(this.w.tnk)
+      );
     },
     addBedHereInfo() {
-      return this.gameStore.addBedInfo(this.gameStore.tnk2tk(this.w.tnk))
+      return this.gameStore.addBedInfo(this.gameStore.tnk2tk(this.w.tnk));
     },
     workerNearestCpPlantzonesProfit() {
-      const ret = []
-      if (!this.w) return ret
-      const start = Date.now()
-      const pzLimit = 16
-      const statsOnPz = this.gameStore.workerStatsOnPlantzone(this.w)
-      const lodgingTk = this.gameStore.tnk2tk(this.w.tnk)
-      const storageTk = this.gameStore.tnk2tk(this.selectedRedirect)
+      const ret = [];
+      if (!this.w) return ret;
+      const start = Date.now();
+      const pzLimit = 16;
+      const statsOnPz = this.gameStore.workerStatsOnPlantzone(this.w);
+      const lodgingTk = this.gameStore.tnk2tk(this.w.tnk);
+      const storageTk = this.gameStore.tnk2tk(this.selectedRedirect);
       // more than needed to discard after sorting
-      const pzList = this.gameStore.dijDiscountedNearestPlantzones(this.w.tnk, 80)
+      const pzList = this.gameStore.dijDiscountedNearestPlantzones(
+        this.w.tnk,
+        80
+      );
       //console.log('pzList', pzList)
-      
+
       pzList.forEach(([pzk, mapCp, path]) => {
         if (this.userStore.workedPlantzones.has(pzk.toString())) {
-          return
+          return;
         }
-        const entry = this.gameStore.pzSelectionEntry(pzk, lodgingTk, this.w.tnk, mapCp, path, this.w, statsOnPz, storageTk)
-        if (entry.profit.dist > 1E6) {
-          return
+        const entry = this.gameStore.pzSelectionEntry(
+          pzk,
+          lodgingTk,
+          this.w.tnk,
+          mapCp,
+          path,
+          this.w,
+          statsOnPz,
+          storageTk
+        );
+        if (entry.profit.dist > 1e6) {
+          return;
         }
-        ret.push(entry)
-      })
-      ret.sort((a,b) => b.dailyPerCp-a.dailyPerCp)
-      console.log('cpt: workerNearestCpPlantzonesProfit took', Date.now()-start, 'ms')
+        ret.push(entry);
+      });
+      ret.sort((a, b) => b.dailyPerCp - a.dailyPerCp);
+      console.log(
+        "cpt: workerNearestCpPlantzonesProfit took",
+        Date.now() - start,
+        "ms"
+      );
       //console.log(ret)
-      return ret.slice(0, pzLimit)
+      return ret.slice(0, pzLimit);
     },
     workerWorkshopsProfit() {
-      const ret = []
-      if (!this.w) return ret
-      const wtk = this.gameStore.tnk2tk(this.w.tnk)
-      const start = Date.now()
-      const maxEntries = 16
-      const localTaken = new Set([...this.routingStore.routing.autotakenNodes])
+      const ret = [];
+      if (!this.w) return ret;
+      const wtk = this.gameStore.tnk2tk(this.w.tnk);
+      const start = Date.now();
+      const maxEntries = 16;
+      const localTaken = new Set([...this.routingStore.routing.autotakenNodes]);
 
-      for (const [hks, workshop] of Object.entries(this.userStore.userWorkshops)) {
-        const hk = Number(hks)
-        if (this.workshopBusy(hk) && workshop.industry != 'mass') continue
-        if (this.gameStore.houseDistance(this.w.tnk, hk) > 1E6) continue
-        const houseTk = this.gameStore.houseInfo[hk].affTown
-        const houseTnk = this.gameStore.tk2tnk(houseTk)
-        const houseCp = this.userStore.occupiedWorkshops.has(Number(hk)) ? 0 : workshop.manualCp
-        const [usedPath, usedPathCost] = this.gameStore.dijkstraPath(houseTnk, this.w.tnk, localTaken)
+      for (const [hks, workshop] of Object.entries(
+        this.userStore.userWorkshops
+      )) {
+        const hk = Number(hks);
+        if (this.workshopBusy(hk) && workshop.industry != "mass") continue;
+        if (this.gameStore.houseDistance(this.w.tnk, hk) > 1e6) continue;
+        const houseTk = this.gameStore.houseInfo[hk].affTown;
+        const houseTnk = this.gameStore.tk2tnk(houseTk);
+        const houseCp = this.userStore.occupiedWorkshops.has(Number(hk))
+          ? 0
+          : workshop.manualCp;
+        const [usedPath, usedPathCost] = this.gameStore.dijkstraPath(
+          houseTnk,
+          this.w.tnk,
+          localTaken
+        );
         const e = this.gameStore.workshopSelectionEntry(
-          hk, wtk, this.w.tnk, usedPath, this.w, usedPathCost, houseCp
-        )
-        ret.push(e)
+          hk,
+          wtk,
+          this.w.tnk,
+          usedPath,
+          this.w,
+          usedPathCost,
+          houseCp
+        );
+        ret.push(e);
       }
 
-      ret.sort((a,b) => b.dailyPerCp-a.dailyPerCp)
-      console.log('cpt: workerWorkshopsProfit took', Date.now()-start, 'ms')
-      console.log('workerWorkshopsProfit', ret)
-      return ret.slice(0, maxEntries)
+      ret.sort((a, b) => b.dailyPerCp - a.dailyPerCp);
+      console.log("cpt: workerWorkshopsProfit took", Date.now() - start, "ms");
+      console.log("workerWorkshopsProfit", ret);
+      return ret.slice(0, maxEntries);
     },
   },
-}
+};
 </script>
 
 <template>
   <template v-if="w">
     <div class="spaced-columns">
       <div>
-        {{ $t('Send') }} {{ w.label }}
+        {{ $t("Send") }} {{ w.label }}
 
         (
         <template v-if="userStore.displayWorkerStatsForPz">
@@ -155,13 +211,13 @@ export default {
           {{ formatFixed(w.mspdSheet, 2) }}🦶
           {{ formatFixed(w.luckSheet, 2) }}🍀
         </template>
-        {{ $t(') where?') }}<br />
+        {{ $t(") where?") }}<br />
         {{ workerNearestCpPlantzonesProfit.length }}
-        {{ $t('top untaken nodes near') }} {{ gameStore.uloc.node[w.tnk] }}:
+        {{ $t("top untaken nodes near") }} {{ gameStore.uloc.node[w.tnk] }}:
       </div>
       <div>
-        {{ $t('stash:') }}
-        <select v-model="selectedRedirect">
+        {{ $t("stash:") }}
+        <select v-model="selectedRedirect" :aria-label="$t('stash:')">
           <option
             v-for="tnk in gameStore.townsWithRedirectableStorageSet"
             :value="tnk"
@@ -174,14 +230,14 @@ export default {
 
     <table>
       <tr>
-        <th>{{ $t('node') }}</th>
-        <th>{{ $t('workload') }}</th>
-        <th>{{ $t('walk') }}</th>
-        <th>{{ $t('+M$/day') }}</th>
-        <th>{{ $t('+CP') }}</th>
-        <th>{{ $t('M$/day/CP') }}</th>
-        <th v-if="0">{{ $t('+efficiency') }}</th>
-        <th>{{ $t('action') }}</th>
+        <th>{{ $t("node") }}</th>
+        <th>{{ $t("workload") }}</th>
+        <th>{{ $t("walk") }}</th>
+        <th>{{ $t("+M$/day") }}</th>
+        <th>{{ $t("+CP") }}</th>
+        <th>{{ $t("M$/day/CP") }}</th>
+        <th v-if="0">{{ $t("+efficiency") }}</th>
+        <th>{{ $t("action") }}</th>
       </tr>
 
       <tr v-for="job in workerNearestCpPlantzonesProfit">
@@ -190,7 +246,7 @@ export default {
             {{ job.pz.name }}
           </a>
           <template v-for="k in this.gameStore.plantzones[job.pz.key].itemkeys">
-            {{ ' ' }}
+            {{ " " }}
             <RouterLink tag="a" :to="{ path: './settings', hash: '#item' + k }">
               <ItemIcon :ik="Number(k)" />
             </RouterLink>
@@ -198,7 +254,7 @@ export default {
         </td>
 
         <td class="tac">
-          {{ userStore.useFloatingResources[job.pz.regiongroup] ? '~' : ''
+          {{ userStore.useFloatingResources[job.pz.regiongroup] ? "~" : ""
           }}{{ formatFixed(userStore.medianWorkloads[job.pz.key], 2) }}
         </td>
 
@@ -236,20 +292,20 @@ export default {
         </td>
         <td>
           <button @click="assignWorkerPz(w, job.pz.key)">
-            {{ $t('assign') }}
+            {{ $t("assign") }}
           </button>
         </td>
       </tr>
 
       <tr>
         <td colspan="7" class="center">
-          {{ $t('Special jobs (not node based)') }}
+          {{ $t("Special jobs (not node based)") }}
         </td>
       </tr>
 
       <tr v-if="userStore.farmingEnable && userStore.workersFarmingCount < 10">
         <td>
-          {{ $t('🌻 Farm') }}
+          {{ $t("🌻 Farm") }}
           <abbr
             :title="
               $t(
@@ -260,8 +316,8 @@ export default {
             >ℹ</abbr
           >
         </td>
-        <td class="tac">{{ $t('x') }}</td>
-        <td class="tac">{{ $t('x') }}</td>
+        <td class="tac">{{ $t("x") }}</td>
+        <td class="tac">{{ $t("x") }}</td>
         <td class="tac">
           {{ formatFixed(thisFarmSelectionEntry.income, 2) }}
         </td>
@@ -277,7 +333,7 @@ export default {
           {{ formatFixed(thisFarmSelectionEntry.effDelta, 3, true) }}
         </td>
         <td>
-          <button @click="assignWorkerFm(w)">{{ $t('assign') }}</button>
+          <button @click="assignWorkerFm(w)">{{ $t("assign") }}</button>
         </td>
       </tr>
 
@@ -320,8 +376,7 @@ export default {
             "
           >
             {{ formatFixed(e.houseCp, 2, false, true) }} </abbr
-          >+<abbr :title="e.infraTooltip" class="tooltip">
-            {{ e.townCp }} </abbr
+          >+<abbr :title="e.infraTooltip" class="tooltip"> {{ e.townCp }} </abbr
           >={{ formatFixed(e.cp, 2, false, true) }}
         </td>
         <td class="tac">
@@ -332,14 +387,14 @@ export default {
         </td>
         <td>
           <button @click="assignWorkerWorkshop(w, e.hk)">
-            {{ $t('assign') }}
+            {{ $t("assign") }}
           </button>
         </td>
       </tr>
 
       <tr>
         <td>
-          {{ $t('✍️ Custom job') }}
+          {{ $t("✍️ Custom job") }}
           <abbr
             :title="
               $t(
@@ -350,12 +405,12 @@ export default {
             >ℹ</abbr
           >
           <div style="float: right">
-             {{ $t('label:') }}
+             {{ $t("label:") }}
             <input v-model="customLabel" class="workshop-label-input" />
           </div>
         </td>
-        <td class="tac">{{ $t('x') }}</td>
-        <td class="tac">{{ $t('x') }}</td>
+        <td class="tac">{{ $t("x") }}</td>
+        <td class="tac">{{ $t("x") }}</td>
         <td class="tac">
           <input
             type="number"
@@ -388,7 +443,7 @@ export default {
           }}
         </td>
         <td>
-          <button @click="assignWorkerCustom(w)">{{ $t('assign') }}</button>
+          <button @click="assignWorkerCustom(w)">{{ $t("assign") }}</button>
         </td>
       </tr>
     </table>
@@ -402,5 +457,4 @@ export default {
 .tooltip {
   cursor: help;
 }
-
 </style>

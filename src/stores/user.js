@@ -1,5 +1,6 @@
 import {employeeCounts, storageRequirements} from '../housing/requirements.mjs'
 import {validAppliedPlan} from '../housing/empire.mjs'
+import {configurationSignature} from '../optimizer/snapshot.mjs'
 import {translate} from '../i18n/index.mjs'
 import {defineStore} from "pinia";
 import {useGameStore} from './game'
@@ -606,12 +607,15 @@ export const useUserStore = defineStore({
       return state.userWorkers.filter(w => w.job && w.job != null)
     },
 
-    townWorkers: (state) => (tk) => {
-      const gameStore = useGameStore()
-      const ret = state.userWorkers.filter(w => gameStore.tnk2tk(w.tnk) == tk)
-      //console.log('townWorkers', tk, ret)
-      return ret
+    workersByTown(state) {
+      const gameStore = useGameStore(), result = {}
+      for (const worker of state.userWorkers) {
+        const tk = gameStore.tnk2tk(worker.tnk)
+        ;(result[tk] ||= []).push(worker)
+      }
+      return result
     },
+    townWorkers: (state) => (tk) => state.workersByTown[tk] || [],
 
     townWorkingWorkers: (state) => (tk) => {
       const gameStore = useGameStore()
@@ -796,6 +800,9 @@ export const useUserStore = defineStore({
     },
     housingPlanValid(state) {
       return validAppliedPlan(state,useGameStore())
+    },
+    planningConfigurationSignature(state) {
+      return configurationSignature(state)
     },
 
     townInfra: (state) => (tk, l, s, priority = 0) => {

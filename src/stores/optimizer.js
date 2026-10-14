@@ -10,6 +10,7 @@ import {
   configurationSignature,
   valuationSignature,
   canReplaceGatheringWorkers,
+  optimizationOptionsChanged,
 } from "../optimizer/snapshot.mjs";
 import { OptimizerClient } from "../optimizer/client.mjs";
 
@@ -26,6 +27,7 @@ export const useOptimizerStore = defineStore("optimizer", {
     progress: {},
     lastOptions: null,
     draftOptions: null,
+    comparisonBaseline: null,
   }),
   actions: {
     start(options) {
@@ -40,8 +42,19 @@ export const useOptimizerStore = defineStore("optimizer", {
           useUserStore(),
           useMarketStore(),
           options,
-          useRoutingStore().routing
+          useRoutingStore().routing,
+          true
         );
+        const user = useUserStore();
+        this.comparisonBaseline = {
+          income: canReplaceGatheringWorkers(user)
+            ? user.allJobsTotalDailyProfit
+            : null,
+          cp: user.totalCP,
+          workers: user.userWorkers.length,
+          nodes: useRoutingStore().routing.autotakenNodes.size,
+          nodeIds: [...useRoutingStore().routing.autotakenNodes],
+        };
         let client = clients.get(this.$state);
         if (!client) {
           client = new OptimizerClient(
@@ -56,7 +69,10 @@ export const useOptimizerStore = defineStore("optimizer", {
                 this.stage = message.stage;
               }
               if (message.type === "solution" || message.type === "complete")
-                this.result = message.result;
+                this.result = {
+                  ...message.result,
+                  comparisonBaseline: this.comparisonBaseline,
+                };
               if (message.type === "error") this.error = message.message;
               if (["complete", "error", "stopped"].includes(message.type)) {
                 this.running = false;
@@ -88,6 +104,10 @@ export const useOptimizerStore = defineStore("optimizer", {
       const user = useUserStore();
       if (this.running || !this.result)
         throw new Error("请等待优化完成或先停止计算");
+      if (optimizationOptionsChanged(this.result, this.draftOptions))
+        throw new Error(
+          "Optimization settings changed. This result uses the previous settings; optimize again before applying."
+        );
       if (this.result.sourceSignature !== configurationSignature(user))
         throw new Error("工人或基础设施设置已变化，请重新优化");
       if (

@@ -7,6 +7,13 @@ import {
 } from "./requirements.mjs";
 
 export const copy = (value) => JSON.parse(JSON.stringify(value));
+export function activeEmpireDrafts(drafts) {
+  return Object.fromEntries(
+    Object.entries(drafts).filter(
+      ([, entry]) => fingerprint(entry.settings) !== fingerprint(entry.original)
+    )
+  );
+}
 export function empireTownSettings(game, user, townKey) {
   return {
     houseReservations: copy(

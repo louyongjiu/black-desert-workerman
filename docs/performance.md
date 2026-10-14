@@ -1,5 +1,7 @@
 # 性能优化与验证
 
+本页记录 2026-10-09 的历史测量。本轮候选缓存、Worker 复用、界面词典和图表拆分的结果见 [2026-10-14 性能报告](performance-2026-10-14.md)。
+
 2026-10-09，性能优化代码迁入原始源码仓库 `D:\Work\repository\black-desert-workerman` 的 `codex/vue-performance` 分支。
 
 ## 改动

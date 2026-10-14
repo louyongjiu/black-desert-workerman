@@ -3,6 +3,7 @@ import { useUserStore } from '../stores/user'
 import { useGameStore } from '../stores/game'
 import { useMarketStore } from '../stores/market'
 import { loadRouteData } from '../routeData.mjs'
+import { loadUiMessages, uiGroupsForRoute } from '../i18n/index.mjs'
 const HomeView = () => import("../views/HomeView.vue")
 const PlantzonesView = () => import("../views/PlantzonesView.vue")
 const LodgingView = () => import("../views/LodgingView.vue")
@@ -91,6 +92,11 @@ router.beforeResolve(async to => {
   const game = useGameStore()
   game.dataError = ''
   try {
+    let language;
+    do {
+      language = useUserStore().selectedLang;
+      await loadUiMessages(language, uiGroupsForRoute(to.path));
+    } while (language !== useUserStore().selectedLang);
     await loadRouteData(to.path, useUserStore(), game, useMarketStore(), to.query)
   } catch (error) {
     game.dataError = 'Unable to load page data. Check your connection and try again.'

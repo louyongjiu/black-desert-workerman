@@ -1,89 +1,115 @@
 <script>
-
-import {formatPrice, unformatPrice} from '../../util.js'
+import { formatPrice, unformatPrice } from "../../util.js";
 
 export default {
-  name: 'AbbrevSpinner',
+  name: "AbbrevSpinner",
 
   props: {
+    label: { type: String, default: "" },
+    resetKey: { type: null, default: null },
     modelValue: {
       type: null,
-      required: true
+      required: true,
     },
     defaultValue: {
       type: null,
-      required: false
+      required: false,
     },
   },
 
-  emits: ['update:modelValue'],
+  emits: ["update:modelValue"],
 
   computed: {
     display() {
-      return this.isEditing
-        ? this.raw
-        : this.formatPrice(this.modelValue)
-    }
+      return this.isEditing ? this.raw : this.formatPrice(this.modelValue);
+    },
   },
 
   data() {
     return {
       isEditing: false,
-      raw: ''
-    }
+      raw: "",
+      invalid: false,
+    };
+  },
+
+  watch: {
+    modelValue(value) {
+      // Parent echoes of valid typing preserve the user's unformatted text.
+      if (!Object.is(value, this.unformatPrice(this.raw))) this.resetEdit();
+    },
+    resetKey() {
+      this.resetEdit();
+    },
   },
 
   methods: {
     formatPrice,
     unformatPrice,
 
+    resetEdit() {
+      this.isEditing = false;
+      this.raw = "";
+      this.invalid = false;
+    },
+
     getStep(v) {
       // WorldMarketVariedPriceInfo
-      if (v <= 499) return 1
-      if (v <= 999) return 5
-      if (v <= 4999) return 10
-      if (v <= 9999) return 50
-      if (v <= 49999) return 100
-      if (v <= 99999) return 500
-      if (v <= 499999) return 1000
-      if (v <= 999999) return 5000
-      if (v <= 4999999) return 10000
-      if (v <= 9999999) return 50000
-      if (v <= 49999999) return 100000
-      if (v <= 99999999) return 500000
-      if (v <= 499999999) return 1000000
-      if (v <= 999999999) return 5000000
-      if (v <= 4999999999) return 10000000
-      if (v <= 9999999999) return 50000000
-      if (v <= 49999999999) return 100000000
-      if (v <= 99999999999) return 500000000
-      if (v <= 499999999999) return 1000000000
-      if (v <= 999999999999) return 5000000000
-      if (v <= 4999999999999) return 10000000000
-      if (v <= 9999999999999) return 50000000000
-      return 100000000000
+      if (v <= 499) return 1;
+      if (v <= 999) return 5;
+      if (v <= 4999) return 10;
+      if (v <= 9999) return 50;
+      if (v <= 49999) return 100;
+      if (v <= 99999) return 500;
+      if (v <= 499999) return 1000;
+      if (v <= 999999) return 5000;
+      if (v <= 4999999) return 10000;
+      if (v <= 9999999) return 50000;
+      if (v <= 49999999) return 100000;
+      if (v <= 99999999) return 500000;
+      if (v <= 499999999) return 1000000;
+      if (v <= 999999999) return 5000000;
+      if (v <= 4999999999) return 10000000;
+      if (v <= 9999999999) return 50000000;
+      if (v <= 49999999999) return 100000000;
+      if (v <= 99999999999) return 500000000;
+      if (v <= 499999999999) return 1000000000;
+      if (v <= 999999999999) return 5000000000;
+      if (v <= 4999999999999) return 10000000000;
+      if (v <= 9999999999999) return 50000000000;
+      return 100000000000;
     },
 
     onInput(e) {
-      this.isEditing = true
-      this.raw = e.target.value
+      this.isEditing = true;
+      this.raw = e.target.value;
 
-      const parsed = this.unformatPrice(this.raw)
-      this.$emit('update:modelValue', parsed)
+      const parsed = this.unformatPrice(this.raw);
+      this.invalid = parsed !== "" && !Number.isFinite(parsed);
+      if (!this.invalid) this.$emit("update:modelValue", parsed);
     },
 
     format() {
-      this.isEditing = false
+      if (!this.invalid) this.isEditing = false;
     },
 
     // in reality, when the white price is above 5000, steps are 4940-4950-5000,
     // but when white price is below 5000, steps are 4980-4990-5000.
     // we inherit this quirk here by allowing 4950-up->5000-down->4990
     stepUp() {
-      const v = this.modelValue ? this.modelValue : this.defaultValue
-      console.log('this.modelValue', this.modelValue, 'this.defaultValue', this.defaultValue, 'v', v)
-      const step1 = this.getStep(v)           // 4950 -> 10
-      const ret1 = (Math.floor(v / step1) + 1) * step1  // 4950 -> 4960
+      this.invalid = false;
+      this.isEditing = false;
+      const v = this.modelValue ? this.modelValue : this.defaultValue;
+      console.log(
+        "this.modelValue",
+        this.modelValue,
+        "this.defaultValue",
+        this.defaultValue,
+        "v",
+        v
+      );
+      const step1 = this.getStep(v); // 4950 -> 10
+      const ret1 = (Math.floor(v / step1) + 1) * step1; // 4950 -> 4960
       /*const step2 = this.getStep(v * 2)       // 9900 -> 50
       const ret2 = (Math.floor(v / step2) + 1) * step2  // 4950 -> 5000
       const step3 = this.getStep(ret2)                      // 5000 -> 50
@@ -91,55 +117,62 @@ export default {
         this.$emit('update:modelValue', ret2)
         return
       }*/
-      this.$emit('update:modelValue', ret1)
+      this.$emit("update:modelValue", ret1);
     },
 
     stepDown() {
-      const v = this.modelValue ? this.modelValue : this.defaultValue
-      const step = this.getStep(v)
-      const ret = (Math.ceil(v / step) - 1) * step
-      this.$emit('update:modelValue', ret)
+      this.invalid = false;
+      this.isEditing = false;
+      const v = this.modelValue ? this.modelValue : this.defaultValue;
+      const step = this.getStep(v);
+      const ret = (Math.ceil(v / step) - 1) * step;
+      this.$emit("update:modelValue", ret);
     },
 
     step(dir) {
-      if (dir == 1) this.stepUp()
-      if (dir == -1) this.stepDown()
+      if (dir == 1) this.stepUp();
+      if (dir == -1) this.stepDown();
     },
 
     startSpin(dir) {
       // Immediate step (native behavior)
-      this.step(dir)
+      this.step(dir);
 
       // Initial delay (Chrome ~450ms)
       this.holdTimeout = setTimeout(() => {
         // Repeat rate (~70ms)
         this.holdInterval = setInterval(() => {
-          this.step(dir)
-        }, 70)
-      }, 450)
+          this.step(dir);
+        }, 70);
+      }, 450);
 
       // Safety: stop on window blur
-      window.addEventListener('mouseup', this.stopSpin, { once: true })
+      window.addEventListener("pointerup", this.stopSpin, { once: true });
     },
 
     stopSpin() {
-      clearTimeout(this.holdTimeout)
-      clearInterval(this.holdInterval)
-      this.holdTimeout = null
-      this.holdInterval = null
-    }
+      clearTimeout(this.holdTimeout);
+      clearInterval(this.holdInterval);
+      this.holdTimeout = null;
+      this.holdInterval = null;
+    },
   },
 
   beforeUnmount() {
-    this.stopSpin()
-  }
-}
+    this.stopSpin();
+  },
+};
 </script>
 
 <template>
   <div class="spin-input">
     <input
       type="text"
+      :aria-label="label || $t('Custom')"
+      :aria-invalid="invalid"
+      :title="
+        invalid ? $t('Enter a price such as 1500, 1.5k or 2m.') : undefined
+      "
       :value="display"
       @input="onInput"
       @keydown.up.prevent="stepUp"
@@ -150,19 +183,28 @@ export default {
     <div class="spin-buttons">
       <button
         :aria-label="$t('Increase')"
-        @mousedown.prevent="startSpin(1)"
-        @mouseup="stopSpin"
-        @mouseleave="stopSpin"
+        @keydown.enter.prevent="stepUp"
+        @keydown.space.prevent="stepUp"
+        @pointerdown.prevent="startSpin(1)"
+        @pointerup="stopSpin"
+        @pointerleave="stopSpin"
+        @pointercancel="stopSpin"
       ></button>
 
       <button
         :aria-label="$t('Decrease')"
-        @mousedown.prevent="startSpin(-1)"
-        @mouseup="stopSpin"
-        @mouseleave="stopSpin"
+        @keydown.enter.prevent="stepDown"
+        @keydown.space.prevent="stepDown"
+        @pointerdown.prevent="startSpin(-1)"
+        @pointerup="stopSpin"
+        @pointerleave="stopSpin"
+        @pointercancel="stopSpin"
       ></button>
     </div>
   </div>
+  <span v-if="invalid" class="error-text fss" role="alert">{{
+    $t("Enter a price such as 1500, 1.5k or 2m.")
+  }}</span>
 </template>
 
 <style>
@@ -174,6 +216,10 @@ export default {
   background: var(--color-background-soft);
 }
 
+.spin-input:focus-within {
+  outline: 2px solid #197957;
+  outline-offset: 2px;
+}
 .spin-input input {
   border: none;
   padding: 1px 4px;
@@ -200,7 +246,7 @@ export default {
 
 /* Triangle arrows using CSS */
 .spin-buttons button::before {
-  content: '';
+  content: "";
   border-left: 3px solid transparent;
   border-right: 3px solid transparent;
 }

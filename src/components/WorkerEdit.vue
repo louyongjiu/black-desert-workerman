@@ -3,7 +3,8 @@ import {useUserStore} from '../stores/user'
 import {useRoutingStore} from '../stores/routing'
 import {useGameStore} from '../stores/game'
 import {formatFixed, randBetween, levelup} from '../util.js'
-import FloatingResourceEdit from './FloatingResourceEdit.vue'
+import { localizedAsyncComponent } from '../i18n/asyncComponent'
+const FloatingResourceEdit = localizedAsyncComponent(() => import('./FloatingResourceEdit.vue'), ['research'])
 import WorkerJobDescription from '../components/WorkerJobDescription.vue'
 import { resourceUrl } from '../resourceUrls.mjs'
 

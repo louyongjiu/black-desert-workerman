@@ -1,79 +1,78 @@
-import core from './core.mjs';
-import research from './research.mjs';
-import optimizer from './optimizer.mjs';
-import about from './about.mjs';
-import housing from './housing.mjs';
-import empireHousing from './empireHousing.mjs';
-import housingWorkbench from './housingWorkbench.mjs';
-import { common as extra, optimizer as optimizerExtra } from './extra.mjs';
+import { ref } from "vue";
+import { fetchJson } from "../dataLoading.mjs";
+import { languages, normalize } from "./meta.mjs";
+export { languages, localeIds, normalize, uiGroupsForRoute } from "./meta.mjs";
 
-export const languages = Object.freeze({
-  en: { name: 'English', locale: 'en-US', html: 'en' },
-  tw: { name: '繁體中文', locale: 'zh-TW', html: 'zh-Hant' },
-  ru: { name: 'Русский', locale: 'ru-RU', html: 'ru' },
-  ko: { name: '한국어', locale: 'ko-KR', html: 'ko' },
-  jp: { name: '日本語', locale: 'ja-JP', html: 'ja' },
-});
-export const localeIds = Object.keys(languages);
-export const normalize = (text) =>
-  String(text ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
 export const messages = Object.create(null);
+const revision = ref(0);
+const activeLanguage = ref("en");
+const patterns = [];
+const patternKeys = new Set();
+const loaded = new Set();
+const requests = new Map();
+const requiredGroups = new Set(["common"]);
+let activation = 0;
 
-function addTable(table, sourceIsEnglish = true) {
-  for (const line of table.trim().split('\n')) {
-    const [source, ...values] = line.trim().split('¦');
-    const translations = sourceIsEnglish ? [source, ...values] : values;
-    if (translations.length !== 5 || translations.some((value) => !value)) {
-      throw new Error(`Incomplete UI translation: ${source}`);
+export function registerUiMessages(language, group, dictionary) {
+  for (const [source, translation] of Object.entries(dictionary)) {
+    const key = normalize(source);
+    const translations = (messages[key] ||= Object.create(null));
+    translations[language] = translation;
+    if (/\{\w+\}/.test(key) && !patternKeys.has(key)) {
+      const names = [];
+      const escaped = key
+        .split(/(\{\w+\})/)
+        .map((part) => {
+          if (/^\{\w+\}$/.test(part)) {
+            names.push(part.slice(1, -1));
+            return "(.+?)";
+          }
+          return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        })
+        .join("");
+      patterns.push({ translations, names, regex: new RegExp(`^${escaped}$`) });
+      patternKeys.add(key);
     }
-    messages[normalize(source)] = Object.fromEntries(
-      ['en', 'tw', 'ru', 'ko', 'jp'].map((id, index) => [
-        id,
-        translations[index],
-      ])
-    );
   }
+  loaded.add(`${language}:${group}`);
+  revision.value++;
 }
-addTable(core);
-addTable(housing);
-addTable(empireHousing);
-addTable(housingWorkbench);
-addTable(research);
-addTable(optimizer, false);
-addTable(extra);
-addTable(optimizerExtra, false);
-for (const [source, values] of Object.entries(about)) {
-  messages[normalize(source)] = Object.fromEntries(
-    ['en', 'tw', 'ru', 'ko', 'jp'].map((id, index) => [
-      id,
-      index === 0 ? source : values[index - 1],
-    ])
+
+export function loadUiMessages(language, groups = ["common"]) {
+  if (!Object.hasOwn(languages, language))
+    return Promise.reject(new Error(`Unsupported UI language: ${language}`));
+  for (const group of groups) requiredGroups.add(group);
+  return Promise.all(
+    groups.map((group) => {
+      const key = `${language}:${group}`;
+      if (loaded.has(key)) return Promise.resolve();
+      if (!requests.has(key)) {
+        const request = fetchJson(`data/ui/${language}/${group}.json`)
+          .then((dictionary) => registerUiMessages(language, group, dictionary))
+          .finally(() => requests.delete(key));
+        requests.set(key, request);
+      }
+      return requests.get(key);
+    })
   );
 }
 
-const patterns = Object.entries(messages)
-  .filter(([source]) => /\{\w+\}/.test(source))
-  .map(([source, translations]) => {
-    const names = [];
-    const escaped = source
-      .split(/(\{\w+\})/)
-      .map((part) => {
-        if (/^\{\w+\}$/.test(part)) {
-          names.push(part.slice(1, -1));
-          return '(.+?)';
-        }
-        return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      })
-      .join('');
-    return { translations, names, regex: new RegExp(`^${escaped}$`) };
-  });
+export async function activateUiLanguage(language) {
+  const generation = ++activation;
+  await loadUiMessages(language, [...requiredGroups]);
+  if (generation === activation) {
+    activeLanguage.value = language;
+    revision.value++;
+  }
+}
 
-export function translate(source, language = 'en', params = {}) {
-  if (source == null) return '';
+export function translate(source, language = "en", params = {}) {
+  revision.value;
+  if (source == null) return "";
   const key = normalize(source);
-  const id = Object.prototype.hasOwnProperty.call(languages, language) ? language : 'en';
+  const id = Object.prototype.hasOwnProperty.call(languages, language)
+    ? language
+    : "en";
   let entry = messages[key],
     values = params;
   if (!entry) {
@@ -93,7 +92,7 @@ export function translate(source, language = 'en', params = {}) {
   }
   const result = (entry?.[id] ?? key).replace(/\{(\w+)\}/g, (token, name) =>
     name in values
-      ? name === 'error'
+      ? name === "error"
         ? translate(values[name], id)
         : String(values[name])
       : token
@@ -104,5 +103,12 @@ export function translate(source, language = 'en', params = {}) {
 }
 
 export function createTranslator(getLanguage) {
-  return (source, params) => translate(source, getLanguage(), params);
+  return (source, params) => {
+    revision.value;
+    const requested = getLanguage();
+    const ready = [...requiredGroups].every((group) =>
+      loaded.has(`${requested}:${group}`)
+    );
+    return translate(source, ready ? requested : activeLanguage.value, params);
+  };
 }

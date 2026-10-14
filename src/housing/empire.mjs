@@ -5,7 +5,7 @@ export function validAppliedPlan(user, game) {
   const plan = user.optimizerPlan;
   return Boolean(
     plan &&
-      plan.appliedSignature === configurationSignature(user) &&
+      plan.appliedSignature === (user.planningConfigurationSignature ?? configurationSignature(user)) &&
       (!plan.housingDataSignature ||
         plan.housingDataSignature === housingDataSignature(game.houseInfo)) &&
       (!plan.dataSignature ||
@@ -15,7 +15,7 @@ export function validAppliedPlan(user, game) {
 export function validPreview(plan, user, game) {
   return Boolean(
     plan &&
-      plan.sourceSignature === configurationSignature(user) &&
+      plan.sourceSignature === (user.planningConfigurationSignature ?? configurationSignature(user)) &&
       (!plan.housingDataSignature ||
         plan.housingDataSignature === housingDataSignature(game.houseInfo)) &&
       (!plan.dataSignature ||

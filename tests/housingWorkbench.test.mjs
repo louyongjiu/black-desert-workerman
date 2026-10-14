@@ -232,6 +232,27 @@ test("dirty town drafts survive switching, reject conflicting live edits, and pr
   assert.equal(editor.empire[5].settings.storagePersonal, 7);
   assert.equal(editor.empireDirty(5), false);
 });
+test("unchanged drafts cannot hide later saved edits in another town", () => {
+  const { game, user, editor } = fixture();
+  editor.ensureEmpire(5);
+  editor.ensureEmpire(6);
+  user.houseReservations[104] = { usage: 0 };
+  user.storagePersonal[5] = 8;
+  editor.updateEmpire(6, { storagePersonal: 3 });
+  const projected = workbench.draftUser(
+    game,
+    user,
+    workbench.activeEmpireDrafts(editor.empire)
+  );
+  assert.equal(projected.houseReservations[104].usage, 0);
+  assert.equal(projected.storagePersonal[5], 8);
+  assert.equal(projected.storagePersonal[6], 3);
+  assert.equal(editor.empireDirty(5), false);
+  assert.equal(editor.empireDirty(6), true);
+  editor.saveEmpire();
+  assert.equal(user.storagePersonal[5], 8);
+  assert.equal(user.storagePersonal[6], 3);
+});
 test("trial deductions validate total needs, including empty, fractional and over-limit inputs", () => {
   const inputs = {
     workers: 6,
@@ -310,6 +331,19 @@ test("private trial copies are editable, calculate only on start, save locally, 
     original
   );
   assert.equal(housing.busyKey, null);
+});
+
+test("copying a preview town absent from the plan clears old live demand", () => {
+  const { user, editor, housing } = fixture();
+  housing.empireSource = { plan: { schemaVersion: 2, housing: [] } };
+  editor.copyEmpire(6);
+  assert.equal(editor.trials[6].inputs.workers, 0);
+  assert.equal(editor.trials[6].inputs.storage, 0);
+  delete housing.empireSource;
+  editor.copyEmpire(6);
+  assert.equal(editor.trials[6].inputs.workers, 1);
+  assert.equal(editor.trials[6].inputs.storage, 2);
+  assert.equal(user.userWorkers.length, 2);
 });
 test("same-town empire and trial requests have separate contexts; late workers cannot overwrite reset trial results", () => {
   const { user, housing, editor, workers, flush, complete } = fixture();

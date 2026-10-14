@@ -6,19 +6,25 @@ import { useUserStore } from "../stores/user";
 import { useHousingStore } from "../stores/housing";
 import { useOptimizerStore } from "../stores/optimizer";
 import { useHousingWorkbenchStore } from "../stores/housingWorkbench";
-import { housingFromPlan } from "../housing/empire.mjs";
+import { useUiActionsStore } from "../stores/uiActions";
+import {
+  housingTownKeys,
+  empireHousingTown,
+  summarizeHousing,
+  housingRows,
+} from "../housing/overview.mjs";
 import { normalizeReservations, townReservations } from "../housing/core.mjs";
 import { storageRequirements } from "../housing/requirements.mjs";
-import { draftUser, trialDemand } from "../housing/workbench.mjs";
+import {
+  activeEmpireDrafts,
+  draftUser,
+  trialDemand,
+} from "../housing/workbench.mjs";
 import { useUiI18n } from "../i18n/vue";
 import HousingReservationsEditor from "../components/HousingReservationsEditor.vue";
 import WorkshopStorage from "../components/WorkshopStorage.vue";
-import { use } from "echarts/core";
-import { CanvasRenderer } from "echarts/renderers";
-import { TreeChart } from "echarts/charts";
-import { TooltipComponent } from "echarts/components";
-import VChart from "vue-echarts";
-use([CanvasRenderer, TreeChart, TooltipComponent]);
+import { localizedAsyncComponent } from "../i18n/asyncComponent";
+const HousingGraph = localizedAsyncComponent(() => import('../components/HousingGraph.vue'));
 const game = useGameStore(),
   user = useUserStore(),
   housing = useHousingStore(),
@@ -33,9 +39,12 @@ const actionError = ref(""),
   showAllTowns = ref(false);
 const townName = (key) => game.uloc.town[key] || String(key);
 const towns = computed(() =>
-  [
-    ...new Set(Object.values(game.houseInfo).map((h) => Number(h.affTown))),
-  ].sort((a, b) => townName(a).localeCompare(townName(b)))
+  housingTownKeys(
+    game,
+    housing.empireSource?.plan,
+    user.housingWorkerCounts,
+    user.warehouseRequirements
+  ).sort((a, b) => townName(a).localeCompare(townName(b)))
 );
 const mode = computed(() =>
   route.query.mode === "trial" ? "trial" : "empire"
@@ -72,7 +81,7 @@ watch(
   { immediate: true }
 );
 watch(
-  [tk, mode],
+  [tk, mode, allTownsView],
   () => {
     if (trial.value) workbench.ensureTrial(tk.value);
     else workbench.ensureEmpire(tk.value);
@@ -88,6 +97,13 @@ const dirtyTowns = computed(() =>
 );
 const dirty = computed(() => workbench.empireDirty(tk.value));
 const source = computed(() => housing.empireSource);
+const empireSourceLabel = computed(() =>
+  source.value
+    ? source.value.preview
+      ? "Housing from the empire preview"
+      : "Housing from the applied empire"
+    : "Housing required by the current workers and storage"
+);
 const staleEmpire = computed(
   () => !source.value && Boolean(user.optimizerPlan || optimizer.result)
 );
@@ -110,8 +126,7 @@ const townOverview = computed(() =>
       manual: Object.keys(
         townReservations(
           game.houseInfo,
-          workbench.empire[key]?.settings.houseReservations ||
-            user.houseReservations,
+          settingsUser.value.houseReservations,
           key
         )
       ).length,
@@ -136,9 +151,43 @@ const townOverview = computed(() =>
     )
 );
 const settingsUser = computed(() => {
-  const draft = draftUser(game, user, workbench.empire);
+  const draft = draftUser(game, user, activeEmpireDrafts(workbench.empire));
   return { ...draft, warehouseRequirements: storageRequirements(game, draft) };
 });
+const workshopStorageTowns = computed(() =>
+  Object.values(settingsUser.value.warehouseRequirements)
+    .filter((town) => town.workshops.length)
+    .sort((a, b) => townName(a.townKey).localeCompare(townName(b.townKey)))
+);
+function empireTownView(key) {
+  return empireHousingTown(game, user, key, {
+    plan: source.value?.plan,
+    workers: user.housingWorkerCounts,
+    warehouses: warehouses.value,
+    infrastructure: (town) => user.townsInfra[town],
+  });
+}
+const selectedEmpireTown = computed(() => empireTownView(tk.value));
+const allEmpireTowns = computed(() =>
+  allTownsView.value ? towns.value.map(empireTownView) : []
+);
+const allHousingSummary = computed(() =>
+  summarizeHousing(allEmpireTowns.value)
+);
+const allHousingRows = computed(() =>
+  allEmpireTowns.value
+    .flatMap((town) =>
+      housingRows(game, town.result, automatic.value).map((row) => ({
+        ...row,
+        townKey: town.key,
+      }))
+    )
+    .sort(
+      (a, b) =>
+        townName(a.townKey).localeCompare(townName(b.townKey)) ||
+        name(a.hk).localeCompare(name(b.hk))
+    )
+);
 const allReservedRows = computed(() =>
   Object.entries({
     ...settingsUser.value.houseReservations,
@@ -166,34 +215,7 @@ const inputDemand = computed(() => {
 });
 const result = computed(() => {
   if (trial.value) return workbench.trialResult(tk.value);
-  if (source.value)
-    return (
-      housingFromPlan(source.value.plan, tk.value, game, user) || {
-        success: true,
-        cost: 0,
-        lodging: 0,
-        storage: 0,
-        indices: [],
-        states: [],
-        housingMethod: "lookup",
-      }
-    );
-  try {
-    const infra = user.townsInfra[tk.value];
-    return infra
-      ? { ...infra, cost: infra.totalCost ?? infra.cost }
-      : {
-          success: true,
-          cost: 0,
-          lodging: 0,
-          storage: 0,
-          indices: [],
-          states: [],
-          housingMethod: "lookup",
-        };
-  } catch (e) {
-    return { success: false, error: e.message, indices: [], states: [] };
-  }
+  return selectedEmpireTown.value.result;
 });
 const running = computed(() =>
   Boolean(result.value?.sourceKey && housing.busyKey === result.value.sourceKey)
@@ -224,22 +246,9 @@ const useName = (usage) => game.uloc.housetype[usage] || String(usage);
 const display = (value) =>
   Number.isFinite(value) ? value.toLocaleString(locale.value) : "—";
 const rows = computed(() =>
-  (result.value?.indices || [])
-    .map((hk, i) => ({
-      hk,
-      house: game.houseInfo[hk],
-      state: result.value.states[i],
-      usage:
-        result.value.usages?.[i] ??
-        (result.value.states[i] === 1
-          ? 2
-          : result.value.states[i] === 2
-          ? 1
-          : 0),
-      automatic: !trial.value && Boolean(automatic.value[hk]),
-    }))
-    .filter((r) => r.house)
-    .sort((a, b) => name(a.hk).localeCompare(name(b.hk)))
+  housingRows(game, result.value, trial.value ? {} : automatic.value).sort(
+    (a, b) => name(a.hk).localeCompare(name(b.hk))
+  )
 );
 const changes = computed(() => {
   if (!saved.value || !result.value?.success) return null;
@@ -279,12 +288,15 @@ function act(action, message = "") {
 function updateTrial(key, value) {
   act(() => workbench.updateTrial(tk.value, { [key]: value }));
 }
-function updateEmpire(patch) {
-  act(() => workbench.updateEmpire(tk.value, patch));
+function updateEmpire(patch, townKey = tk.value) {
+  act(() => workbench.updateEmpire(townKey, patch));
 }
 function saveEmpire() {
   act(() => {
     workbench.saveEmpire();
+    useUiActionsStore().notify(
+      "Housing settings saved. Re-optimize to update the plan."
+    );
     router.push("/optimizer");
   });
 }
@@ -301,12 +313,40 @@ function retry() {
   });
 }
 const chartOption = computed(() => {
-  const root = { name: "", value: { label: townName(tk.value) }, children: [] },
+  const root = {
+      name: "",
+      value: {
+        label: allTownsView.value ? t("All towns") : townName(tk.value),
+      },
+      children: [],
+    },
+    townRoots = new Map(),
     nodes = new Map();
+  if (allTownsView.value)
+    for (const key of towns.value) {
+      const branch = {
+        name: "town:" + key,
+        value: { label: townName(key) },
+        label: {
+          show: true,
+          fontSize: 11,
+          formatter: (item) => item.value.label,
+        },
+        children: [],
+      };
+      townRoots.set(key, branch);
+      root.children.push(branch);
+    }
+  const graphRows = new Map(
+    (allTownsView.value ? allHousingRows.value : rows.value).map((row) => [
+      row.hk,
+      row,
+    ])
+  );
   for (const h of Object.values(game.houseInfo).filter(
-    (h) => Number(h.affTown) === tk.value
+    (h) => allTownsView.value || Number(h.affTown) === tk.value
   )) {
-    const row = rows.value.find((r) => r.hk === h.key);
+    const row = graphRows.get(h.key);
     nodes.set(h.key, {
       name: String(h.key),
       value: {
@@ -323,18 +363,24 @@ const chartOption = computed(() => {
     });
   }
   for (const [hk, node] of nodes)
-    (nodes.get(game.houseInfo[hk].needHouseKey) || root).children.push(node);
+    (
+      nodes.get(game.houseInfo[hk].needHouseKey) ||
+      townRoots.get(Number(game.houseInfo[hk].affTown)) ||
+      root
+    ).children.push(node);
   return {
     tooltip: {
       trigger: "item",
       formatter: (p) =>
-        p.value.label +
-        " · " +
-        (p.value.cp ?? "") +
-        " " +
-        t("CP") +
-        " · " +
-        (p.value.use || ""),
+        p.value.cp == null
+          ? p.value.label
+          : p.value.label +
+            " · " +
+            (p.value.cp ?? "") +
+            " " +
+            t("CP") +
+            " · " +
+            (p.value.use || ""),
     },
     series: [
       {
@@ -343,7 +389,7 @@ const chartOption = computed(() => {
         roam: true,
         data: [root],
         symbolSize: 6,
-        initialTreeDepth: 10,
+        initialTreeDepth: allTownsView.value ? 1 : 10,
         label: { show: false },
         emphasis: { focus: "ancestor" },
       },
@@ -392,6 +438,16 @@ const chartOption = computed(() => {
               )
         }}
       </p>
+      <p class="help-text">
+        {{
+          $t(
+            "Drafts are saved on this device across refreshes. Save all changed towns to include them in the empire."
+          )
+        }}
+      </p>
+      <p v-if="workbench.storageError" role="alert">
+        {{ $t(workbench.storageError) }}
+      </p>
       <div class="controls town-controls">
         <label
           >{{ $t("town")
@@ -406,11 +462,233 @@ const chartOption = computed(() => {
           $t("Back to empire optimizer")
         }}</router-link>
       </div>
+      <nav v-if="allTownsView" class="all-town-links">
+        <a href="#all-housing-results">{{ $t("All-town housing results") }}</a>
+        <a href="#all-housing-settings">{{ $t("Empire housing settings") }}</a>
+        <a href="#housing-graph">{{ $t("House prerequisite diagram") }}</a>
+      </nav>
+      <section
+        v-if="allTownsView"
+        id="all-housing-results"
+        class="result all-town-results"
+        :aria-label="$t('All-town housing results')"
+      >
+        <h2>{{ $t("Housing used by the empire") }} · {{ $t("All towns") }}</h2>
+        <p>{{ $t(empireSourceLabel) }}</p>
+        <p v-if="dirtyTowns.length" class="notice" role="status">
+          {{
+            $t(
+              "The housing below uses saved settings. Save the draft and re-optimize to include your changes."
+            )
+          }}
+        </p>
+        <p v-if="staleEmpire" class="notice">
+          {{
+            $t(
+              "House uses or empire requirements changed. Re-optimize to update the complete plan."
+            )
+          }}
+        </p>
+        <p v-if="allHousingSummary.pending" role="status">
+          {{
+            $t("Calculating housing for {count} towns", {
+              count: allHousingSummary.pending,
+            })
+          }}
+        </p>
+        <p v-if="allHousingSummary.failed" role="alert">
+          {{
+            $t(
+              "Housing needs review in {count} towns. See the town details below.",
+              { count: allHousingSummary.failed }
+            )
+          }}
+        </p>
+        <div class="summary-cards">
+          <div>
+            <span>{{ $t("Housing CP") }}</span
+            ><strong>{{ display(allHousingSummary.cost) }}</strong>
+          </div>
+          <div>
+            <span>{{ $t("Beds needed / available") }}</span
+            ><strong
+              >{{ display(allHousingSummary.workers) }} /
+              {{ display(allHousingSummary.totalBeds) }}</strong
+            >
+          </div>
+          <div>
+            <span>{{ $t("Storage needed / available") }}</span
+            ><strong
+              >{{ display(allHousingSummary.storage) }} /
+              {{ display(allHousingSummary.totalStorage) }}</strong
+            >
+          </div>
+        </div>
+        <p v-if="source">
+          {{
+            $t("This housing cost is already included in the empire budget.")
+          }}
+        </p>
+        <details class="town-capacity-details">
+          <summary>{{ $t("Housing capacity by town") }}</summary>
+          <div class="table-wrap">
+            <table class="all-town-capacity">
+              <thead>
+                <tr>
+                  <th>{{ $t("town") }}</th>
+                  <th>{{ $t("Housing CP") }}</th>
+                  <th>{{ $t("Beds needed / available") }}</th>
+                  <th>{{ $t("Storage needed / available") }}</th>
+                  <th>{{ $t("Housing planning method") }}</th>
+                  <th>{{ $t("Housing calculation status") }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="town in allEmpireTowns" :key="town.key">
+                  <td>
+                    <button @click="tk = town.key">
+                      {{ townName(town.key) }}
+                    </button>
+                  </td>
+                  <td>{{ display(town.result.cost) }}</td>
+                  <td>
+                    {{ display(town.demand.workers) }} /
+                    {{ display(town.totalBeds) }}
+                  </td>
+                  <td>
+                    {{ display(town.demand.storage) }} /
+                    {{ display(town.totalStorage) }}
+                  </td>
+                  <td>
+                    {{
+                      $t(
+                        town.result.housingMethod === "solve"
+                          ? "Housing calculated with reserved uses"
+                          : "Precomputed housing plan"
+                      )
+                    }}
+                  </td>
+                  <td>
+                    {{
+                      $t(
+                        town.result.pending
+                          ? "Calculating housing"
+                          : town.ready
+                          ? "Ready"
+                          : "Review required"
+                      )
+                    }}
+                    <p v-if="town.result.error" role="alert">
+                      {{ $t(town.result.error) }}
+                    </p>
+                    <button
+                      v-if="town.result.pending && town.result.sourceKey"
+                      @click="housing.stop(town.result.sourceKey)"
+                    >
+                      {{ $t("Stop housing calculation") }}
+                    </button>
+                    <button
+                      v-if="town.result.error && town.result.sourceKey"
+                      @click="act(() => housing.retry(town.result.sourceKey))"
+                    >
+                      {{ $t("Retry housing calculation") }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+        <h3>{{ $t("House") }} · {{ allHousingRows.length }}</h3>
+        <p
+          v-if="
+            !allHousingRows.length &&
+            !allHousingSummary.pending &&
+            !allHousingSummary.failed
+          "
+        >
+          {{ $t("No houses are needed for the current plan.") }}
+        </p>
+        <div v-if="allHousingRows.length" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{{ $t("town") }}</th>
+                <th>{{ $t("House") }}</th>
+                <th>{{ $t("usage") }}</th>
+                <th>{{ $t("CP") }}</th>
+                <th>{{ $t("Prerequisite house") }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in allHousingRows" :key="row.hk">
+                <td>
+                  <button @click="tk = row.townKey">
+                    {{ townName(row.townKey) }}
+                  </button>
+                </td>
+                <td>{{ name(row.hk) }}</td>
+                <td>
+                  {{
+                    row.automatic ? $t("Working workshop") : useName(row.usage)
+                  }}<small>{{
+                    user.houseReservations[row.hk]
+                      ? $t("Custom house use")
+                      : $t("Automatically planned")
+                  }}</small>
+                </td>
+                <td>{{ row.house.CP }}</td>
+                <td>
+                  {{
+                    row.house.needHouseKey ? name(row.house.needHouseKey) : "—"
+                  }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <details class="capacity-details">
+          <summary>{{ $t("Capacity details") }}</summary>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{{ $t("town") }}</th>
+                  <th>{{ $t("Resource") }}</th>
+                  <th>{{ $t("Total demand") }}</th>
+                  <th>{{ $t("Free and paid capacity") }}</th>
+                  <th>{{ $t("Capacity from houses") }}</th>
+                  <th>{{ $t("Total available capacity") }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template v-for="town in allEmpireTowns" :key="town.key">
+                  <tr>
+                    <td rowspan="2">{{ townName(town.key) }}</td>
+                    <td>{{ $t("lodging") }}</td>
+                    <td>{{ display(town.demand.workers) }}</td>
+                    <td>{{ display(town.demand.freeBeds) }}</td>
+                    <td>{{ display(town.result.lodging) }}</td>
+                    <td>{{ display(town.totalBeds) }}</td>
+                  </tr>
+                  <tr>
+                    <td>{{ $t("storage") }}</td>
+                    <td>{{ display(town.demand.storage) }}</td>
+                    <td>{{ display(town.demand.freeStorage) }}</td>
+                    <td>{{ display(town.result.storage) }}</td>
+                    <td>{{ display(town.totalStorage) }}</td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </section>
       <template v-if="!trial">
         <details
           :key="allTownsView ? 'all' : 'town'"
           class="town-overview"
-          open
+          :open="!allTownsView"
         >
           <summary>{{ $t("Town housing overview") }}</summary>
           <label v-if="!allTownsView" class="inline"
@@ -468,7 +746,11 @@ const chartOption = computed(() => {
             </table>
           </div>
         </details>
-        <section v-if="allTownsView" class="panel all-town-uses">
+        <section
+          v-if="allTownsView"
+          id="all-housing-settings"
+          class="panel all-town-uses"
+        >
           <h2>{{ $t("Reserved house uses") }} · {{ $t("All towns") }}</h2>
           <p>
             {{
@@ -513,13 +795,39 @@ const chartOption = computed(() => {
               </tbody>
             </table>
           </div>
+          <div class="all-workshop-storage">
+            <h2>{{ $t("Workshop storage") }} · {{ $t("All towns") }}</h2>
+            <p v-if="!workshopStorageTowns.length">
+              {{ $t("No active workshop storage requirements.") }}
+            </p>
+            <WorkshopStorage
+              v-for="town in workshopStorageTowns"
+              :key="town.townKey"
+              :town-key="town.townKey"
+              :settings-user="settingsUser"
+              @update:storage="
+                updateEmpire({ workshopStorage: $event }, town.townKey)
+              "
+              @update:settings="updateEmpire($event, town.townKey)"
+            />
+          </div>
+          <button
+            v-if="workbench.savedUndo"
+            @click="act(() => workbench.undoSavedEmpire())"
+          >
+            {{ $t("Undo saved empire housing settings") }}
+          </button>
           <button
             v-if="dirtyTowns.length"
             class="primary"
             :disabled="optimizer.running"
             @click="saveEmpire"
           >
-            {{ $t("Save settings and return to empire optimizer") }}
+            {{
+              $t("Save all {count} towns and return", {
+                count: dirtyTowns.length,
+              })
+            }}
           </button>
         </section>
         <section v-else class="panel">
@@ -577,10 +885,14 @@ const chartOption = computed(() => {
           </p>
           <button
             class="primary save-empire"
-            :disabled="optimizer.running"
+            :disabled="optimizer.running || !dirtyTowns.length"
             @click="saveEmpire"
           >
-            {{ $t("Save settings and return to empire optimizer") }}
+            {{
+              $t("Save all {count} towns and return", {
+                count: dirtyTowns.length,
+              })
+            }}
           </button>
           <button
             v-if="workbench.savedUndo"
@@ -749,6 +1061,7 @@ const chartOption = computed(() => {
       </section>
       <p v-if="notice" role="status">{{ $t(notice) }}</p>
       <p v-if="actionError" role="alert">{{ $t(actionError) }}</p>
+
       <template v-if="!allTownsView">
         <h2>
           {{ trial ? $t("Trial result") : $t("Housing used by the empire") }}
@@ -948,42 +1261,41 @@ const chartOption = computed(() => {
         <p v-else-if="result && !result.pending && !result.error" role="alert">
           {{ $t("No housing plan satisfies these reservations") }}
         </p>
-        <details @toggle="graphOpen = $event.target.open">
-          <summary>{{ $t("House prerequisite diagram") }}</summary>
-          <v-chart
-            v-if="graphOpen"
-            class="chart"
-            :option="chartOption"
-            autoresize
-          />
-        </details>
-        <details class="algorithm-info">
-          <summary>{{ $t("Planning rules and data source") }}</summary>
-          <p>
-            {{
-              $t(
-                "Ordinary towns use precomputed plans. Towns with reserved uses or working workshops are solved house by house."
-              )
-            }}
-          </p>
-          <p v-if="result">
-            {{ $t("Housing planning method") }}:
-            {{
-              $t(
-                result.housingMethod === "solve"
-                  ? "Housing calculated with reserved uses"
-                  : "Precomputed housing plan"
-              )
-            }}
-          </p>
-          <p>
-            {{ $t("data from") }}
-            <a href="https://github.com/Thell/bdo-housecraft"
-              >Thell/bdo-housecraft</a
-            >
-          </p>
-        </details>
       </template>
+      <details id="housing-graph" @toggle="graphOpen = $event.target.open">
+        <summary>{{ $t("House prerequisite diagram") }}</summary>
+        <HousingGraph
+          v-if="graphOpen"
+          class="chart"
+          :option="chartOption"
+        />
+      </details>
+      <details class="algorithm-info">
+        <summary>{{ $t("Planning rules and data source") }}</summary>
+        <p>
+          {{
+            $t(
+              "Ordinary towns use precomputed plans. Towns with reserved uses or working workshops are solved house by house."
+            )
+          }}
+        </p>
+        <p v-if="!allTownsView && result">
+          {{ $t("Housing planning method") }}:
+          {{
+            $t(
+              result.housingMethod === "solve"
+                ? "Housing calculated with reserved uses"
+                : "Precomputed housing plan"
+            )
+          }}
+        </p>
+        <p>
+          {{ $t("data from") }}
+          <a href="https://github.com/Thell/bdo-housecraft"
+            >Thell/bdo-housecraft</a
+          >
+        </p>
+      </details>
     </section>
   </main>
 </template>
@@ -1054,7 +1366,7 @@ select {
 }
 .primary {
   font-weight: bold;
-  border-color: #78b8ee;
+  border-color: #197957;
 }
 .save-empire {
   margin: 0.7rem 0.7rem 0 0;
@@ -1122,5 +1434,33 @@ p[role="alert"] {
     flex: 1;
     padding: 0.6rem;
   }
+}
+</style>
+
+<style scoped>
+.all-town-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+#all-housing-results,
+#all-housing-settings,
+#housing-graph {
+  scroll-margin-top: 1rem;
+}
+.all-workshop-storage {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+.all-town-results .summary-cards {
+  margin: 1rem 0;
+}
+.all-town-results h3 {
+  margin: 1rem 0 0.5rem;
+}
+.all-town-capacity {
+  min-width: 740px;
 }
 </style>
